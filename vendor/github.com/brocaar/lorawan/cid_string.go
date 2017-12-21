@@ -4,14 +4,29 @@ package lorawan
 
 import "fmt"
 
-const _CID_name = "LinkCheckReqLinkADRReqDutyCycleReqRXParamSetupReqDevStatusReqNewChannelReqRXTimingSetupReqTXParamSetupReqDLChannelReq"
+const (
+	_CID_name_0 = "LinkCheckReqLinkADRReqDutyCycleReqRXParamSetupReqDevStatusReqNewChannelReqRXTimingSetupReqTXParamSetupReqDLChannelReq"
+	_CID_name_1 = "PingSlotInfoReqPingSlotChannelReq"
+	_CID_name_2 = "BeaconFreqReq"
+)
 
-var _CID_index = [...]uint8{0, 12, 22, 34, 49, 61, 74, 90, 105, 117}
+var (
+	_CID_index_0 = [...]uint8{0, 12, 22, 34, 49, 61, 74, 90, 105, 117}
+	_CID_index_1 = [...]uint8{0, 15, 33}
+	_CID_index_2 = [...]uint8{0, 13}
+)
 
 func (i CID) String() string {
-	i -= 2
-	if i >= CID(len(_CID_index)-1) {
-		return fmt.Sprintf("CID(%d)", i+2)
+	switch {
+	case 2 <= i && i <= 10:
+		i -= 2
+		return _CID_name_0[_CID_index_0[i]:_CID_index_0[i+1]]
+	case 16 <= i && i <= 17:
+		i -= 16
+		return _CID_name_1[_CID_index_1[i]:_CID_index_1[i+1]]
+	case i == 19:
+		return _CID_name_2
+	default:
+		return fmt.Sprintf("CID(%d)", i)
 	}
-	return _CID_name[_CID_index[i]:_CID_index[i+1]]
 }

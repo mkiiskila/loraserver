@@ -100,6 +100,12 @@ type DeviceSession struct {
 
 	// LastDevStatusMargin contains the last received margin status.
 	LastDevStatusMargin int8
+
+	// BeaconLocked defines if device has established a beacon lock.
+	BeaconLocked bool
+
+	// PingSlotPeriodicity holds the ping-slot periodicity.
+	PingSlotPeriodicity int
 }
 
 // AppendUplinkHistory appends an UplinkHistory item and makes sure the list

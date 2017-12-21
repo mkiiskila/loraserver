@@ -32,6 +32,7 @@ var tasks = []func(*dataContext) error{
 	logDataFramesCollected,
 	getApplicationServerClientForDataUp,
 	decryptFRMPayloadMACCommands,
+	setBeaconLocked,
 	sendRXInfoToNetworkController,
 	handleFOptsMACCommands,
 	handleFRMPayloadMACCommands,
@@ -137,6 +138,29 @@ func decryptFRMPayloadMACCommands(ctx *dataContext) error {
 		if err := ctx.RXPacket.PHYPayload.DecryptFRMPayload(ctx.DeviceSession.NwkSKey); err != nil {
 			return errors.Wrap(err, "decrypt FRMPayload error")
 		}
+	}
+
+	return nil
+}
+
+func setBeaconLocked(ctx *dataContext) error {
+	// set the Class-B beacon locked
+	if ctx.DeviceSession.BeaconLocked == ctx.MACPayload.FHDR.FCtrl.ClassB {
+		// no state change
+		return nil
+	}
+
+	ctx.DeviceSession.BeaconLocked = ctx.MACPayload.FHDR.FCtrl.ClassB
+	if ctx.DeviceSession.BeaconLocked {
+		log.WithFields(log.Fields{
+			"dev_eui": ctx.DeviceSession.DevEUI,
+		}).Info("class-b beacon locked")
+	}
+
+	if !ctx.DeviceSession.BeaconLocked {
+		log.WithFields(log.Fields{
+			"dev_eui": ctx.DeviceSession.DevEUI,
+		}).Info("class-b beacon lost")
 	}
 
 	return nil
