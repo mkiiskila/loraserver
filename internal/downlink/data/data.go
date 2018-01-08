@@ -19,10 +19,18 @@ import (
 	"github.com/brocaar/lorawan"
 )
 
+type deviceClass int
+
+const (
+	classB deviceClass = iota
+	classC
+)
+
 var responseTasks = []func(*dataContext) error{
 	setToken,
 	getDeviceProfile,
 	requestDevStatus,
+	setPingSlotParameters,
 	getDataTXInfo,
 	setRemainingPayloadSize,
 	getNextDeviceQueueItem,
@@ -37,7 +45,12 @@ var scheduleNextQueueItemTasks = []func(*dataContext) error{
 	getDeviceProfile,
 	getServiceProfile,
 	requestDevStatus,
-	getDataTXInfoForRX2,
+	forClass(classC,
+		getDataTXInfoForRX2,
+	),
+	forClass(classB,
+		setTXInfoForClassB,
+	),
 	setRemainingPayloadSize,
 	getNextDeviceQueueItem,
 	getMACCommands,
@@ -120,6 +133,31 @@ func (ctx dataContext) Validate() error {
 	return nil
 }
 
+func forClass(class deviceClass, tasks ...func(*dataContext) error) func(*dataContext) error {
+	return func(ctx *dataContext) error {
+		if class == classC && !ctx.DeviceProfile.SupportsClassC {
+			return nil
+		}
+
+		if class == classB && !ctx.DeviceProfile.SupportsClassB {
+			return nil
+		}
+
+		// in case the device is class-b capable, but has no beacon lock
+		if class == classB && !ctx.DeviceSession.BeaconLocked {
+			return nil
+		}
+
+		for _, f := range tasks {
+			if err := f(ctx); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
 // HandleResponse handles a downlink response.
 func HandleResponse(sp storage.ServiceProfile, ds storage.DeviceSession, adr, mustSend, ack bool) error {
 	ctx := dataContext{
@@ -188,6 +226,32 @@ func requestDevStatus(ctx *dataContext) error {
 	return nil
 }
 
+func setPingSlotParameters(ctx *dataContext) error {
+	if !ctx.DeviceProfile.SupportsClassB {
+		return nil
+	}
+
+	dr := ctx.DeviceSession.PingSlotDR
+	freq := ctx.DeviceSession.PingSlotFrequency
+
+	if common.PingSlotDR != -1 {
+		dr = common.PingSlotDR
+	}
+
+	if common.PingSlotFrequency != -1 {
+		freq = common.PingSlotFrequency
+	}
+
+	if dr != ctx.DeviceSession.PingSlotDR || freq != ctx.DeviceSession.PingSlotFrequency {
+		err := maccommand.RequestPingSlotChannel(ctx.DeviceSession.DevEUI, dr, freq)
+		if err != nil {
+			log.WithError(err).Error("request ping-slot channel error")
+		}
+	}
+
+	return nil
+}
+
 func getDataTXInfo(ctx *dataContext) error {
 	if len(ctx.DeviceSession.LastRXInfoSet) == 0 {
 		return ErrNoLastRXInfoSet
@@ -208,7 +272,7 @@ func getDataTXInfoForRX2(ctx *dataContext) error {
 	}
 	rxInfo := ctx.DeviceSession.LastRXInfoSet[0]
 
-	if int(ctx.DeviceSession.RX2DR) > len(common.Band.DataRates)-1 {
+	if len(common.Band.DataRates) <= int(ctx.DeviceSession.RX2DR) {
 		return errors.Wrapf(ErrInvalidDataRate, "dr: %d (max dr: %d)", ctx.DeviceSession.RX2DR, len(common.Band.DataRates)-1)
 	}
 
@@ -221,6 +285,28 @@ func getDataTXInfoForRX2(ctx *dataContext) error {
 		CodeRate:    "4/5",
 	}
 	ctx.DataRate = int(ctx.DeviceSession.RX2DR)
+
+	return nil
+}
+
+func setTXInfoForClassB(ctx *dataContext) error {
+	if len(ctx.DeviceSession.LastRXInfoSet) == 0 {
+		return ErrNoLastRXInfoSet
+	}
+	rxInfo := ctx.DeviceSession.LastRXInfoSet[0]
+
+	if len(common.Band.DataRates) <= ctx.DeviceSession.PingSlotDR {
+		return errors.Wrapf(ErrInvalidDataRate, "dr: %d (max dr: %d)", ctx.DeviceSession.PingSlotDR, len(common.Band.DataRates)-1)
+	}
+
+	ctx.TXInfo = gw.TXInfo{
+		MAC:       rxInfo.MAC,
+		Frequency: ctx.DeviceSession.PingSlotFrequency,
+		Power:     common.Band.DefaultTXPower,
+		DataRate:  common.Band.DataRates[ctx.DeviceSession.PingSlotDR],
+		CodeRate:  "4/5",
+	}
+	ctx.DataRate = ctx.DeviceSession.PingSlotDR
 
 	return nil
 }
@@ -261,6 +347,11 @@ func getNextDeviceQueueItem(ctx *dataContext) error {
 	// used for decrypting the payload by the device!!
 	ctx.DeviceSession.FCntDown = qi.FCnt
 
+	if qi.EmitAtTimeSinceGPSEpoch != nil {
+		gwDuration := gw.Duration(*qi.EmitAtTimeSinceGPSEpoch)
+		ctx.TXInfo.TimeSinceGPSEpoch = &gwDuration
+	}
+
 	// delete when not confirmed
 	if !qi.Confirmed {
 		if err := storage.DeleteDeviceQueueItem(common.DB, qi.ID); err != nil {
@@ -272,11 +363,12 @@ func getNextDeviceQueueItem(ctx *dataContext) error {
 		if ctx.DeviceProfile.SupportsClassC {
 			timeout = timeout.Add(time.Duration(ctx.DeviceProfile.ClassCTimeout) * time.Second)
 		}
-		if ctx.DeviceProfile.SupportsClassB {
-			timeout = timeout.Add(time.Duration(ctx.DeviceProfile.ClassBTimeout) * time.Second)
-		}
 		qi.IsPending = true
-		qi.TimeoutAfter = &timeout
+
+		// in case of class-b it is already set, we don't want to overwrite it
+		if qi.TimeoutAfter == nil {
+			qi.TimeoutAfter = &timeout
+		}
 
 		if err := storage.UpdateDeviceQueueItem(common.DB, &qi); err != nil {
 			return errors.Wrap(err, "update device-queue item error")

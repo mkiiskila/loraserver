@@ -88,12 +88,18 @@ var RX1Delay int
 // RX1DROffset holds the RX1 data-rate offset
 var RX1DROffset int
 
-// RX2DR hodsl the RX2 data-rate
+// RX2DR holds the RX2 data-rate
 var RX2DR int
 
-// ClassCScheduleInterval it the interval in which the Class-C scheduler
+// ScheduleInterval it the interval in which the scheduler
 // must run.
-var ClassCScheduleInterval = time.Second
+var ScheduleInterval = time.Second
 
-// ClassCScheduleBatchSize contains the batch size of the Class-C scheduler
-var ClassCScheduleBatchSize = 100
+// ScheduleBatchSize contains the batch size of the scheduler.
+var ScheduleBatchSize = 100
+
+// PingSlotDR holds the data-rate used for ping-slot transmissions.
+var PingSlotDR = -1
+
+// PingSlotFrequency holds the tx frequency for ping-slot transmissions.
+var PingSlotFrequency = -1

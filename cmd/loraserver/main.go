@@ -67,6 +67,7 @@ func run(c *cli.Context) error {
 		setNetID,
 		setBandConfig,
 		setRXParameters,
+		setPingSlotParameters,
 		setDeduplicationDelay,
 		setGetDownlinkDataDelay,
 		setCreateGatewayOnStats,
@@ -162,6 +163,29 @@ func setRXParameters(c *cli.Context) error {
 	} else {
 		common.RX2DR = common.Band.RX2DataRate
 	}
+
+	log.WithFields(log.Fields{
+		"rx1_delay":     common.RX1Delay,
+		"rx1_dr_offset": common.RX1DROffset,
+	}).Debug("rx parameters set")
+
+	return nil
+}
+
+func setPingSlotParameters(c *cli.Context) error {
+	if pingSlotDR := c.Int("ping-slot-dr"); pingSlotDR != -1 {
+		common.PingSlotDR = pingSlotDR
+	}
+
+	if pingSlotFrequency := c.Int("ping-slot-frequency"); pingSlotFrequency != -1 {
+		common.PingSlotFrequency = pingSlotFrequency
+	}
+
+	log.WithFields(log.Fields{
+		"ping_slot_dr":        common.PingSlotDR,
+		"ping_slot_frequency": common.PingSlotFrequency,
+	}).Debug("ping-slot parameters set")
+
 	return nil
 }
 
@@ -439,7 +463,7 @@ func startStatsServer(gwStats *gateway.StatsHandler) func(*cli.Context) error {
 
 func startQueueScheduler(c *cli.Context) error {
 	log.Info("starting downlink device-queue scheduler")
-	go downlink.ClassCSchedulerLoop()
+	go downlink.SchedulerLoop()
 	return nil
 }
 
@@ -712,6 +736,18 @@ func main() {
 			Usage:  "rx2 data-rate (when set to -1, the default rx2 data-rate will be used)",
 			Value:  -1,
 			EnvVar: "RX2_DR",
+		},
+		cli.IntFlag{
+			Name:   "ping-slot-dr",
+			Usage:  "class-b ping-slot data-rate (when set to -1, the device-profile data-rate will be used)",
+			Value:  -1,
+			EnvVar: "PING_SLOT_DR",
+		},
+		cli.IntFlag{
+			Name:   "ping-slot-frequency",
+			Usage:  "class-b ping-slot tx frequency (in Hz) (when set to -1, the device-profile frequency will be used)",
+			Value:  -1,
+			EnvVar: "PING_SLOT_FREQUENCY",
 		},
 	}
 	app.Run(os.Args)

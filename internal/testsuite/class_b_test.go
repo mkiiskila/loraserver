@@ -36,7 +36,7 @@ func TestClassBUplink(t *testing.T) {
 	common.DB = db
 	common.RedisPool = common.NewRedisPool(conf.RedisURL)
 
-	Convey("Given a clean database", t, func() {
+	Convey("Given a clean database with test-data", t, func() {
 		test.MustFlushRedis(common.RedisPool)
 		test.MustResetDB(common.DB)
 
@@ -83,6 +83,30 @@ func TestClassBUplink(t *testing.T) {
 			DevEUI:           lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8},
 		}
 		So(storage.CreateDevice(common.DB, &d), ShouldBeNil)
+
+		queueItems := []storage.DeviceQueueItem{
+			{
+				DevEUI:     d.DevEUI,
+				FRMPayload: []byte{1, 2, 3, 4},
+				FPort:      1,
+				FCnt:       1,
+			},
+			{
+				DevEUI:     d.DevEUI,
+				FRMPayload: []byte{1, 2, 3, 4},
+				FPort:      1,
+				FCnt:       2,
+			},
+			{
+				DevEUI:     d.DevEUI,
+				FRMPayload: []byte{1, 2, 3, 4},
+				FPort:      1,
+				FCnt:       3,
+			},
+		}
+		for i := range queueItems {
+			So(storage.CreateDeviceQueueItem(common.DB, &queueItems[i]), ShouldBeNil)
+		}
 
 		// device-session
 		ds := storage.DeviceSession{
@@ -151,12 +175,12 @@ func TestClassBUplink(t *testing.T) {
 								DevAddr: ds.DevAddr,
 								FCnt:    ds.FCntUp,
 								FCtrl: lorawan.FCtrl{
-									ClassB: true,
+									ClassB: false,
 								},
 							},
 						},
 					},
-					ExpectedBeaconLocked: true,
+					ExpectedBeaconLocked: false,
 				},
 			}
 
@@ -182,6 +206,16 @@ func TestClassBUplink(t *testing.T) {
 					ds, err := storage.GetDeviceSession(common.RedisPool, t.DeviceSession.DevEUI)
 					So(err, ShouldBeNil)
 					So(ds.BeaconLocked, ShouldEqual, t.ExpectedBeaconLocked)
+
+					if t.ExpectedBeaconLocked {
+						queueItems, err := storage.GetDeviceQueueItemsForDevEUI(common.DB, t.DeviceSession.DevEUI)
+						So(err, ShouldBeNil)
+
+						for _, qi := range queueItems {
+							So(qi.EmitAtTimeSinceGPSEpoch, ShouldNotBeNil)
+							So(qi.TimeoutAfter, ShouldNotBeNil)
+						}
+					}
 				})
 			}
 		})

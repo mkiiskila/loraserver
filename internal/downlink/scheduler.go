@@ -12,22 +12,22 @@ import (
 	"github.com/brocaar/loraserver/internal/storage"
 )
 
-// ClassCSchedulerLoop starts an infinit loop calling the Class-C scheduler
-// each Class-C schedule interval.
-func ClassCSchedulerLoop() {
+// SchedulerLoop starts an infinit loop calling the scheduler loop for Class-B
+// and Class-C sheduling.
+func SchedulerLoop() {
 	for {
 		log.Debug("running class-c scheduler batch")
-		if err := ClassCScheduleBatch(common.ClassCScheduleBatchSize); err != nil {
+		if err := ScheduleBatch(common.ScheduleBatchSize); err != nil {
 			log.WithError(err).Error("class-c scheduler error")
 		}
-		time.Sleep(common.ClassCScheduleInterval)
+		time.Sleep(common.ScheduleInterval)
 	}
 }
 
-// ClassCScheduleBatch schedules a batch of class-c transmissions.
-func ClassCScheduleBatch(size int) error {
+// ScheduleBatch schedules a downlink batch.
+func ScheduleBatch(size int) error {
 	return storage.Transaction(common.DB, func(tx *sqlx.Tx) error {
-		devices, err := storage.GetDevicesWithClassCDeviceQueueItems(tx, size)
+		devices, err := storage.GetDevicesWithClassBOrClassCDeviceQueueItems(tx, size)
 		if err != nil {
 			return errors.Wrap(err, "get deveuis with class-c device-queue items error")
 		}

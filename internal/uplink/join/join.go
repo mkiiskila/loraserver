@@ -214,6 +214,13 @@ func createNodeSession(ctx *context) error {
 		EnabledChannels: common.Band.GetUplinkChannels(),
 		LastRXInfoSet:   ctx.RXPacket.RXInfoSet,
 		MaxSupportedDR:  ctx.ServiceProfile.ServiceProfile.DRMax,
+
+		PingSlotDR:        ctx.DeviceProfile.PingSlotDR,
+		PingSlotFrequency: int(ctx.DeviceProfile.PingSlotFreq),
+	}
+
+	if ctx.DeviceProfile.PingSlotPeriod != 0 {
+		ctx.DeviceSession.PingSlotNb = (1 << 12) / ctx.DeviceProfile.PingSlotPeriod
 	}
 
 	if err := storage.SaveDeviceSession(common.RedisPool, ctx.DeviceSession); err != nil {

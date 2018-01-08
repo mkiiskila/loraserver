@@ -13,7 +13,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestHandleReq(t *testing.T) {
+func TestHandleUplink(t *testing.T) {
 	conf := test.GetConfig()
 
 	Convey("Given a clean Redis database", t, func() {
@@ -104,8 +104,8 @@ func TestHandleReq(t *testing.T) {
 
 				So(Handle(&ds, block, nil, models.RXInfoSet{}), ShouldBeNil)
 
-				Convey("Then the ClassB ping-slot periodicity has been set", func() {
-					So(ds.PingSlotPeriodicity, ShouldEqual, 3)
+				Convey("Then the ClassB PingNb has been set", func() {
+					So(ds.PingSlotNb, ShouldEqual, 16)
 				})
 
 				Convey("Then the expected response was added to the mac-command queue", func() {
@@ -126,7 +126,7 @@ func TestHandleReq(t *testing.T) {
 	})
 }
 
-func TestHandleAns(t *testing.T) {
+func TestHandleDownlink(t *testing.T) {
 	conf := test.GetConfig()
 
 	Convey("Given a clean Redis database", t, func() {
@@ -293,6 +293,108 @@ func TestHandleAns(t *testing.T) {
 
 						Convey("Then the device-session was updated as expected", func() {
 							So(tst.ExpectedDeviceSession, ShouldResemble, tst.DeviceSession)
+						})
+					})
+				}
+			})
+
+			Convey("Testing PingSlotChannelAns", func() {
+				testTable := []struct {
+					Name                  string
+					DeviceSession         storage.DeviceSession
+					PingSlotChannelReq    *lorawan.PingSlotChannelReqPayload
+					PingSlotChannelAns    lorawan.PingSlotChannelAnsPayload
+					ExpectedDeviceSession storage.DeviceSession
+					ExpectedError         error
+				}{
+					{
+						Name: "pending request and positive ACK updates frequency and data-rate",
+						DeviceSession: storage.DeviceSession{
+							PingSlotFrequency: 868100000,
+							PingSlotDR:        3,
+						},
+						PingSlotChannelReq: &lorawan.PingSlotChannelReqPayload{
+							Frequency: 868300000 / 100,
+							DR:        4,
+						},
+						PingSlotChannelAns: lorawan.PingSlotChannelAnsPayload{
+							DataRateOK:         true,
+							ChannelFrequencyOK: true,
+						},
+						ExpectedDeviceSession: storage.DeviceSession{
+							PingSlotFrequency: 868300000,
+							PingSlotDR:        4,
+						},
+					},
+					{
+						Name: "pending request and negative ACK does not update",
+						DeviceSession: storage.DeviceSession{
+							PingSlotFrequency: 868100000,
+							PingSlotDR:        3,
+						},
+						PingSlotChannelReq: &lorawan.PingSlotChannelReqPayload{
+							Frequency: 868300000 / 100,
+							DR:        4,
+						},
+						PingSlotChannelAns: lorawan.PingSlotChannelAnsPayload{
+							DataRateOK:         false,
+							ChannelFrequencyOK: true,
+						},
+						ExpectedDeviceSession: storage.DeviceSession{
+							PingSlotFrequency: 868100000,
+							PingSlotDR:        3,
+						},
+					},
+					{
+						Name: "no pending request and positive ACK returns an error",
+						DeviceSession: storage.DeviceSession{
+							PingSlotFrequency: 868100000,
+							PingSlotDR:        3,
+						},
+						PingSlotChannelAns: lorawan.PingSlotChannelAnsPayload{
+							DataRateOK:         false,
+							ChannelFrequencyOK: true,
+						},
+						ExpectedError: ErrDoesNotExist,
+						ExpectedDeviceSession: storage.DeviceSession{
+							PingSlotFrequency: 868100000,
+							PingSlotDR:        3,
+						},
+					},
+				}
+
+				for i, test := range testTable {
+					Convey(fmt.Sprintf("Testing: %s [%d]", test.Name, i), func() {
+						var pending *Block
+						if test.PingSlotChannelReq != nil {
+							pending = &Block{
+								CID: lorawan.PingSlotChannelReq,
+								MACCommands: []lorawan.MACCommand{
+									lorawan.MACCommand{
+										CID:     lorawan.PingSlotChannelReq,
+										Payload: test.PingSlotChannelReq,
+									},
+								},
+							}
+						}
+
+						answer := Block{
+							CID: lorawan.PingSlotChannelAns,
+							MACCommands: []lorawan.MACCommand{
+								lorawan.MACCommand{
+									CID:     lorawan.PingSlotChannelAns,
+									Payload: &test.PingSlotChannelAns,
+								},
+							},
+						}
+
+						err := Handle(&test.DeviceSession, answer, pending, nil)
+						Convey("Then the expected error (or nil) was returned", func() {
+							So(err, ShouldResemble, test.ExpectedError)
+						})
+
+						Convey("Then the device-session was updated as expected", func() {
+							So(test.ExpectedDeviceSession, ShouldResemble, test.DeviceSession)
 						})
 					})
 				}

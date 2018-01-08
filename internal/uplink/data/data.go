@@ -17,6 +17,7 @@ import (
 	"github.com/brocaar/loraserver/internal/channels"
 	"github.com/brocaar/loraserver/internal/common"
 	datadown "github.com/brocaar/loraserver/internal/downlink/data"
+	"github.com/brocaar/loraserver/internal/downlink/data/classb"
 	"github.com/brocaar/loraserver/internal/gateway"
 	"github.com/brocaar/loraserver/internal/maccommand"
 	"github.com/brocaar/loraserver/internal/models"
@@ -28,6 +29,7 @@ import (
 var tasks = []func(*dataContext) error{
 	setContextFromDataPHYPayload,
 	getDeviceSessionForPHYPayload,
+	getDeviceProfile,
 	getServiceProfile,
 	logDataFramesCollected,
 	getApplicationServerClientForDataUp,
@@ -50,6 +52,7 @@ type dataContext struct {
 	RXPacket                models.RXPacket
 	MACPayload              *lorawan.MACPayload
 	DeviceSession           storage.DeviceSession
+	DeviceProfile           storage.DeviceProfile
 	ServiceProfile          storage.ServiceProfile
 	ApplicationServerClient as.ApplicationServerClient
 }
@@ -84,6 +87,16 @@ func getDeviceSessionForPHYPayload(ctx *dataContext) error {
 		return errors.Wrap(err, "get device-session error")
 	}
 	ctx.DeviceSession = ds
+
+	return nil
+}
+
+func getDeviceProfile(ctx *dataContext) error {
+	dp, err := storage.GetAndCacheDeviceProfile(common.DB, common.RedisPool, ctx.DeviceSession.DeviceProfileID)
+	if err != nil {
+		return errors.Wrap(err, "get device-profile error")
+	}
+	ctx.DeviceProfile = dp
 
 	return nil
 }
@@ -152,6 +165,10 @@ func setBeaconLocked(ctx *dataContext) error {
 
 	ctx.DeviceSession.BeaconLocked = ctx.MACPayload.FHDR.FCtrl.ClassB
 	if ctx.DeviceSession.BeaconLocked {
+		if err := classb.ScheduleDeviceQueueToPingSlotsForDevEUI(common.DB, ctx.DeviceProfile, ctx.DeviceSession); err != nil {
+			return errors.Wrap(err, "schedule device-queue to ping-slots error")
+		}
+
 		log.WithFields(log.Fields{
 			"dev_eui": ctx.DeviceSession.DevEUI,
 		}).Info("class-b beacon locked")

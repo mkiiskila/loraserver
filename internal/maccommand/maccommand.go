@@ -20,6 +20,8 @@ func Handle(ds *storage.DeviceSession, block Block, pending *Block, rxInfoSet mo
 		err = handleDevStatusAns(ds, block)
 	case lorawan.PingSlotInfoReq:
 		err = handlePingSlotInfoReq(ds, block)
+	case lorawan.PingSlotChannelAns:
+		err = handlePingSlotChannelAns(ds, block, pending)
 	default:
 		err = fmt.Errorf("undefined CID %d", block.CID)
 

@@ -21,7 +21,7 @@ func handlePingSlotInfoReq(ds *storage.DeviceSession, block Block) error {
 		return fmt.Errorf("expected *lorawan.PingSlotInfoReqPayload, got: %T", block.MACCommands[0].Payload)
 	}
 
-	ds.PingSlotPeriodicity = int(pl.Periodicity)
+	ds.PingSlotNb = 1 << (7 - pl.Periodicity)
 
 	log.WithFields(log.Fields{
 		"dev_eui":     ds.DevEUI,
