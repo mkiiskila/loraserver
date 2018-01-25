@@ -72,9 +72,6 @@ It has these top-level messages:
 	GatewayStats
 	GetGatewayStatsRequest
 	GetGatewayStatsResponse
-	GetFrameLogsForDevEUIRequest
-	GetFrameLogsResponse
-	FrameLog
 	DataRate
 	RXInfo
 	TXInfo

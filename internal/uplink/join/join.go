@@ -3,11 +3,9 @@ package join
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -15,7 +13,6 @@ import (
 	joindown "github.com/brocaar/loraserver/internal/downlink/join"
 	"github.com/brocaar/loraserver/internal/maccommand"
 	"github.com/brocaar/loraserver/internal/models"
-	"github.com/brocaar/loraserver/internal/node"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/lorawan"
 	"github.com/brocaar/lorawan/backend"
@@ -28,7 +25,6 @@ var tasks = []func(*context) error{
 	validateNonce,
 	getRandomDevAddr,
 	getJoinAcceptFromAS,
-	logJoinRequestFrame,
 	flushDeviceQueue,
 	createNodeSession,
 	createDeviceActivation,
@@ -179,11 +175,6 @@ func getJoinAcceptFromAS(ctx *context) error {
 	return nil
 }
 
-func logJoinRequestFrame(ctx *context) error {
-	logUplink(common.DB, ctx.JoinRequestPayload.DevEUI, ctx.RXPacket)
-	return nil
-}
-
 func flushDeviceQueue(ctx *context) error {
 	if err := storage.FlushDeviceQueueForDevEUI(common.DB, ctx.Device.DevEUI); err != nil {
 		return errors.Wrap(err, "flush device-queue error")
@@ -257,32 +248,4 @@ func sendJoinAcceptDownlink(ctx *context) error {
 	}
 
 	return nil
-}
-
-func logUplink(db sqlx.Execer, devEUI lorawan.EUI64, rxPacket models.RXPacket) {
-	if !common.LogNodeFrames {
-		return
-	}
-
-	phyB, err := rxPacket.PHYPayload.MarshalBinary()
-	if err != nil {
-		log.Errorf("marshal phypayload to binary error: %s", err)
-		return
-	}
-
-	rxB, err := json.Marshal(rxPacket.RXInfoSet)
-	if err != nil {
-		log.Errorf("marshal rx-info set to json error: %s", err)
-		return
-	}
-
-	fl := node.FrameLog{
-		DevEUI:     devEUI,
-		RXInfoSet:  &rxB,
-		PHYPayload: phyB,
-	}
-	err = node.CreateFrameLog(db, &fl)
-	if err != nil {
-		log.Errorf("create frame-log error: %s", err)
-	}
 }

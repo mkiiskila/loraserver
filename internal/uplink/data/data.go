@@ -2,12 +2,9 @@ package data
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -20,7 +17,6 @@ import (
 	"github.com/brocaar/loraserver/internal/gateway"
 	"github.com/brocaar/loraserver/internal/maccommand"
 	"github.com/brocaar/loraserver/internal/models"
-	"github.com/brocaar/loraserver/internal/node"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/lorawan"
 )
@@ -29,7 +25,6 @@ var tasks = []func(*dataContext) error{
 	setContextFromDataPHYPayload,
 	getDeviceSessionForPHYPayload,
 	getServiceProfile,
-	logDataFramesCollected,
 	getApplicationServerClientForDataUp,
 	decryptFRMPayloadMACCommands,
 	sendRXInfoToNetworkController,
@@ -93,24 +88,6 @@ func getServiceProfile(ctx *dataContext) error {
 		return errors.Wrap(err, "get service-profile error")
 	}
 	ctx.ServiceProfile = sp
-
-	return nil
-}
-
-func logDataFramesCollected(ctx *dataContext) error {
-	var macs []string
-	for _, p := range ctx.RXPacket.RXInfoSet {
-		macs = append(macs, p.MAC.String())
-	}
-
-	log.WithFields(log.Fields{
-		"dev_eui":  ctx.DeviceSession.DevEUI,
-		"gw_count": len(macs),
-		"gw_macs":  strings.Join(macs, ", "),
-		"mtype":    ctx.RXPacket.PHYPayload.MHDR.MType,
-	}).Info("packet(s) collected")
-
-	logUplink(common.DB, ctx.DeviceSession.DevEUI, ctx.RXPacket)
 
 	return nil
 }
@@ -518,32 +495,4 @@ func handleUplinkMACCommands(ds *storage.DeviceSession, frmPayload bool, command
 	}
 
 	return nil
-}
-
-func logUplink(db sqlx.Execer, devEUI lorawan.EUI64, rxPacket models.RXPacket) {
-	if !common.LogNodeFrames {
-		return
-	}
-
-	phyB, err := rxPacket.PHYPayload.MarshalBinary()
-	if err != nil {
-		log.Errorf("marshal phypayload to binary error: %s", err)
-		return
-	}
-
-	rxB, err := json.Marshal(rxPacket.RXInfoSet)
-	if err != nil {
-		log.Errorf("marshal rx-info set to json error: %s", err)
-		return
-	}
-
-	fl := node.FrameLog{
-		DevEUI:     devEUI,
-		RXInfoSet:  &rxB,
-		PHYPayload: phyB,
-	}
-	err = node.CreateFrameLog(db, &fl)
-	if err != nil {
-		log.Errorf("create frame-log error: %s", err)
-	}
 }

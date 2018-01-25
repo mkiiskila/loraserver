@@ -3,18 +3,14 @@ package join
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/internal/common"
 	"github.com/brocaar/loraserver/internal/models"
-	"github.com/brocaar/loraserver/internal/node"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/lorawan"
 )
@@ -22,7 +18,6 @@ import (
 var tasks = []func(*joinContext) error{
 	setToken,
 	getJoinAcceptTXInfo,
-	logJoinAcceptFrame,
 	sendJoinAcceptResponse,
 }
 
@@ -104,11 +99,6 @@ func getJoinAcceptTXInfo(ctx *joinContext) error {
 	return nil
 }
 
-func logJoinAcceptFrame(ctx *joinContext) error {
-	logDownlink(common.DB, ctx.DeviceSession.DevEUI, ctx.PHYPayload, ctx.TXInfo)
-	return nil
-}
-
 func sendJoinAcceptResponse(ctx *joinContext) error {
 	err := common.Gateway.SendTXPacket(gw.TXPacket{
 		Token:      ctx.Token,
@@ -120,31 +110,4 @@ func sendJoinAcceptResponse(ctx *joinContext) error {
 	}
 
 	return nil
-}
-
-func logDownlink(db sqlx.Execer, devEUI lorawan.EUI64, phy lorawan.PHYPayload, txInfo gw.TXInfo) {
-	if !common.LogNodeFrames {
-		return
-	}
-
-	phyB, err := phy.MarshalBinary()
-	if err != nil {
-		log.Errorf("marshal phypayload to binary error: %s", err)
-		return
-	}
-
-	txB, err := json.Marshal(txInfo)
-	if err != nil {
-		log.Errorf("marshal tx-info to json error: %s", err)
-	}
-
-	fl := node.FrameLog{
-		DevEUI:     devEUI,
-		TXInfo:     &txB,
-		PHYPayload: phyB,
-	}
-	err = node.CreateFrameLog(db, &fl)
-	if err != nil {
-		log.Errorf("create frame-log error: %s", err)
-	}
 }

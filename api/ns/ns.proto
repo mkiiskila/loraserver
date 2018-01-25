@@ -107,9 +107,6 @@ service NetworkServer {
     // GetGatewayStats returns stats of an existing gateway.
     rpc GetGatewayStats(GetGatewayStatsRequest) returns (GetGatewayStatsResponse) {}
 
-    // GetFrameLogsForDevEUI returns the uplink / downlink frame logs for the given DevEUI.
-    rpc GetFrameLogsForDevEUI(GetFrameLogsForDevEUIRequest) returns (GetFrameLogsResponse) {}
-
     // CreateChannelConfiguration creates the given channel-configuration.
     rpc CreateChannelConfiguration(CreateChannelConfigurationRequest) returns (CreateChannelConfigurationResponse) {}
 
@@ -579,39 +576,6 @@ message GetGatewayStatsRequest {
 
 message GetGatewayStatsResponse {
     repeated GatewayStats result = 1;
-}
-
-message GetFrameLogsForDevEUIRequest {
-    // The device EUI (8 bytes).
-    bytes devEUI = 1;
-
-    // Max number of logs to return in the result-set.
-    int32 limit = 2;
-
-    // Offset in the result-set (for pagination).
-    int32 offset = 3;
-}
-
-message GetFrameLogsResponse {
-    // Total number of logs.
-    int32 totalCount = 1;
-
-    // The result-set.
-    repeated FrameLog result = 2;
-}
-
-message FrameLog {
-    // Timestamp of when the frame was logged.
-    string createdAt = 1;
-
-    // RX-info set (in case of an uplink).
-    repeated RXInfo rxInfoSet = 2;
-
-    // TX-info (in case of a downlink).
-    TXInfo txInfo = 3;
-
-    // LoRaWAN PHYPayload.
-    bytes phyPayload = 4;
 }
 
 message DataRate {
