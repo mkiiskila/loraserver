@@ -13,6 +13,7 @@ import (
 
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/internal/common"
+	"github.com/brocaar/loraserver/internal/models"
 	"github.com/brocaar/loraserver/internal/node"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/lorawan"
@@ -28,15 +29,17 @@ var tasks = []func(*joinContext) error{
 type joinContext struct {
 	Token         uint16
 	DeviceSession storage.DeviceSession
+	RXPacket      models.RXPacket
 	TXInfo        gw.TXInfo
 	PHYPayload    lorawan.PHYPayload
 }
 
 // Handle handles a downlink join-response.
-func Handle(ds storage.DeviceSession, phy lorawan.PHYPayload) error {
+func Handle(ds storage.DeviceSession, rxPacket models.RXPacket, phy lorawan.PHYPayload) error {
 	ctx := joinContext{
 		DeviceSession: ds,
 		PHYPayload:    phy,
+		RXPacket:      rxPacket,
 	}
 
 	for _, t := range tasks {
@@ -67,7 +70,7 @@ func getJoinAcceptTXInfo(ctx *joinContext) error {
 
 	ctx.TXInfo = gw.TXInfo{
 		MAC:      rxInfo.MAC,
-		CodeRate: rxInfo.CodeRate,
+		CodeRate: ctx.RXPacket.TXInfo.CodeRate,
 		Power:    common.Band.DefaultTXPower,
 	}
 
@@ -76,21 +79,15 @@ func getJoinAcceptTXInfo(ctx *joinContext) error {
 	if ctx.DeviceSession.RXWindow == storage.RX1 {
 		timestamp = rxInfo.Timestamp + uint32(common.Band.JoinAcceptDelay1/time.Microsecond)
 
-		// get uplink dr
-		uplinkDR, err := common.Band.GetDataRate(rxInfo.DataRate)
-		if err != nil {
-			return errors.Wrap(err, "get data-rate error")
-		}
-
 		// get RX1 DR
-		rx1DR, err := common.Band.GetRX1DataRate(uplinkDR, 0)
+		rx1DR, err := common.Band.GetRX1DataRate(ctx.RXPacket.TXInfo.DR, 0)
 		if err != nil {
 			return errors.Wrap(err, "get rx1 data-rate error")
 		}
 		ctx.TXInfo.DataRate = common.Band.DataRates[rx1DR]
 
 		// get RX1 frequency
-		ctx.TXInfo.Frequency, err = common.Band.GetRX1Frequency(rxInfo.Frequency)
+		ctx.TXInfo.Frequency, err = common.Band.GetRX1Frequency(ctx.RXPacket.TXInfo.Frequency)
 		if err != nil {
 			return errors.Wrap(err, "get rx1 frequency error")
 		}

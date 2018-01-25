@@ -14,6 +14,7 @@ import (
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/internal/common"
 	"github.com/brocaar/loraserver/internal/maccommand"
+	"github.com/brocaar/loraserver/internal/models"
 	"github.com/brocaar/loraserver/internal/node"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/lorawan"
@@ -103,6 +104,9 @@ type dataContext struct {
 	// Data contains the bytes to send. Note that this requires FPort to be a
 	// value other than 0.
 	Data []byte
+
+	// RXPacket holds the received uplink packet (in case of Class-A downlink).
+	RXPacket *models.RXPacket
 }
 
 func (ctx dataContext) Validate() error {
@@ -122,12 +126,13 @@ func (ctx dataContext) Validate() error {
 }
 
 // HandleResponse handles a downlink response.
-func HandleResponse(sp storage.ServiceProfile, ds storage.DeviceSession, adr, mustSend, ack bool) error {
+func HandleResponse(rxPacket models.RXPacket, sp storage.ServiceProfile, ds storage.DeviceSession, adr, mustSend, ack bool) error {
 	ctx := dataContext{
 		ServiceProfile: sp,
 		DeviceSession:  ds,
 		ACK:            ack,
 		MustSend:       mustSend,
+		RXPacket:       &rxPacket,
 	}
 
 	for _, t := range responseTasks {
@@ -195,7 +200,7 @@ func getDataTXInfo(ctx *dataContext) error {
 	}
 	rxInfo := ctx.DeviceSession.LastRXInfoSet[0]
 	var err error
-	ctx.TXInfo, ctx.DataRate, err = getDataDownTXInfoAndDR(ctx.DeviceSession, rxInfo)
+	ctx.TXInfo, ctx.DataRate, err = getDataDownTXInfoAndDR(ctx.DeviceSession, ctx.RXPacket.TXInfo, rxInfo)
 	if err != nil {
 		return errors.Wrap(err, "get data down tx-info error")
 	}
@@ -447,31 +452,26 @@ func checkLastDownlinkTimestamp(ctx *dataContext) error {
 	return nil
 }
 
-func getDataDownTXInfoAndDR(ds storage.DeviceSession, rxInfo gw.RXInfo) (gw.TXInfo, int, error) {
+func getDataDownTXInfoAndDR(ds storage.DeviceSession, lastTXInfo models.TXInfo, rxInfo models.RXInfo) (gw.TXInfo, int, error) {
 	var dr int
 	txInfo := gw.TXInfo{
 		MAC:      rxInfo.MAC,
-		CodeRate: rxInfo.CodeRate,
+		CodeRate: lastTXInfo.CodeRate,
 		Power:    common.Band.DefaultTXPower,
 	}
 
 	var timestamp uint32
 
 	if ds.RXWindow == storage.RX1 {
-		uplinkDR, err := common.Band.GetDataRate(rxInfo.DataRate)
-		if err != nil {
-			return txInfo, dr, err
-		}
-
 		// get rx1 dr
-		dr, err = common.Band.GetRX1DataRate(uplinkDR, int(ds.RX1DROffset))
+		dr, err := common.Band.GetRX1DataRate(lastTXInfo.DR, int(ds.RX1DROffset))
 		if err != nil {
 			return txInfo, dr, err
 		}
 		txInfo.DataRate = common.Band.DataRates[dr]
 
 		// get rx1 frequency
-		txInfo.Frequency, err = common.Band.GetRX1Frequency(rxInfo.Frequency)
+		txInfo.Frequency, err = common.Band.GetRX1Frequency(lastTXInfo.Frequency)
 		if err != nil {
 			return txInfo, dr, err
 		}

@@ -153,7 +153,7 @@ func sendRXInfoToNetworkController(ctx *dataContext) error {
 
 func handleFOptsMACCommands(ctx *dataContext) error {
 	if len(ctx.MACPayload.FHDR.FOpts) > 0 {
-		if err := handleUplinkMACCommands(&ctx.DeviceSession, false, ctx.MACPayload.FHDR.FOpts, ctx.RXPacket.RXInfoSet); err != nil {
+		if err := handleUplinkMACCommands(&ctx.DeviceSession, false, ctx.MACPayload.FHDR.FOpts, ctx.RXPacket); err != nil {
 			log.WithFields(log.Fields{
 				"dev_eui": ctx.DeviceSession.DevEUI,
 				"fopts":   ctx.MACPayload.FHDR.FOpts,
@@ -178,7 +178,7 @@ func handleFRMPayloadMACCommands(ctx *dataContext) error {
 			}
 			commands = append(commands, *cmd)
 		}
-		if err := handleUplinkMACCommands(&ctx.DeviceSession, true, commands, ctx.RXPacket.RXInfoSet); err != nil {
+		if err := handleUplinkMACCommands(&ctx.DeviceSession, true, commands, ctx.RXPacket); err != nil {
 			log.WithFields(log.Fields{
 				"dev_eui":  ctx.DeviceSession.DevEUI,
 				"commands": commands,
@@ -279,6 +279,7 @@ func handleDownlink(ctx *dataContext) error {
 	// handle downlink (ACK)
 	time.Sleep(common.GetDownlinkDataDelay)
 	if err := datadown.HandleResponse(
+		ctx.RXPacket,
 		ctx.ServiceProfile,
 		ctx.DeviceSession,
 		ctx.MACPayload.FHDR.FCtrl.ADR,
@@ -298,17 +299,19 @@ func sendRXInfoPayload(ds storage.DeviceSession, rxPacket models.RXPacket) error
 		return fmt.Errorf("expected *lorawan.MACPayload, got: %T", rxPacket.PHYPayload.MACPayload)
 	}
 
+	dr := common.Band.DataRates[rxPacket.TXInfo.DR]
+
 	rxInfoReq := nc.HandleRXInfoRequest{
 		DevEUI: ds.DevEUI[:],
 		TxInfo: &nc.TXInfo{
-			Frequency: int64(rxPacket.RXInfoSet[0].Frequency),
+			Frequency: int64(rxPacket.TXInfo.Frequency),
 			Adr:       macPL.FHDR.FCtrl.ADR,
-			CodeRate:  rxPacket.RXInfoSet[0].CodeRate,
+			CodeRate:  rxPacket.TXInfo.CodeRate,
 			DataRate: &nc.DataRate{
-				Modulation:   string(rxPacket.RXInfoSet[0].DataRate.Modulation),
-				BandWidth:    uint32(rxPacket.RXInfoSet[0].DataRate.Bandwidth),
-				SpreadFactor: uint32(rxPacket.RXInfoSet[0].DataRate.SpreadFactor),
-				Bitrate:      uint32(rxPacket.RXInfoSet[0].DataRate.BitRate),
+				Modulation:   string(dr.Modulation),
+				BandWidth:    uint32(dr.Bandwidth),
+				SpreadFactor: uint32(dr.SpreadFactor),
+				Bitrate:      uint32(dr.BitRate),
 			},
 		},
 	}
@@ -344,19 +347,21 @@ func sendRXInfoPayload(ds storage.DeviceSession, rxPacket models.RXPacket) error
 }
 
 func publishDataUp(asClient as.ApplicationServerClient, ds storage.DeviceSession, sp storage.ServiceProfile, rxPacket models.RXPacket, macPL lorawan.MACPayload) error {
+	dr := common.Band.DataRates[rxPacket.TXInfo.DR]
+
 	publishDataUpReq := as.HandleUplinkDataRequest{
 		AppEUI: ds.JoinEUI[:],
 		DevEUI: ds.DevEUI[:],
 		FCnt:   macPL.FHDR.FCnt,
 		TxInfo: &as.TXInfo{
-			Frequency: int64(rxPacket.RXInfoSet[0].Frequency),
+			Frequency: int64(rxPacket.TXInfo.Frequency),
 			Adr:       macPL.FHDR.FCtrl.ADR,
-			CodeRate:  rxPacket.RXInfoSet[0].CodeRate,
+			CodeRate:  rxPacket.TXInfo.CodeRate,
 			DataRate: &as.DataRate{
-				Modulation:   string(rxPacket.RXInfoSet[0].DataRate.Modulation),
-				BandWidth:    uint32(rxPacket.RXInfoSet[0].DataRate.Bandwidth),
-				SpreadFactor: uint32(rxPacket.RXInfoSet[0].DataRate.SpreadFactor),
-				Bitrate:      uint32(rxPacket.RXInfoSet[0].DataRate.BitRate),
+				Modulation:   string(dr.Modulation),
+				BandWidth:    uint32(dr.Bandwidth),
+				SpreadFactor: uint32(dr.SpreadFactor),
+				Bitrate:      uint32(dr.BitRate),
 			},
 		},
 		DeviceStatusBattery: 256,
@@ -431,7 +436,7 @@ func publishDataUp(asClient as.ApplicationServerClient, ds storage.DeviceSession
 	return nil
 }
 
-func handleUplinkMACCommands(ds *storage.DeviceSession, frmPayload bool, commands []lorawan.MACCommand, rxInfoSet models.RXInfoSet) error {
+func handleUplinkMACCommands(ds *storage.DeviceSession, frmPayload bool, commands []lorawan.MACCommand, rxPacket models.RXPacket) error {
 	var cids []lorawan.CID
 	blocks := make(map[lorawan.CID]maccommand.Block)
 
@@ -481,7 +486,7 @@ func handleUplinkMACCommands(ds *storage.DeviceSession, frmPayload bool, command
 
 		// CID >= 0x80 are proprietary mac-commands and are not handled by LoRa Server
 		if block.CID < 0x80 {
-			if err := maccommand.Handle(ds, block, pending, rxInfoSet); err != nil {
+			if err := maccommand.Handle(ds, block, pending, rxPacket); err != nil {
 				log.WithFields(logFields).Errorf("handle mac-command block error: %s", err)
 			}
 		}

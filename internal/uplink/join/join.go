@@ -252,7 +252,7 @@ func sendJoinAcceptDownlink(ctx *context) error {
 		return errors.Wrap(err, "unmarshal downlink phypayload error")
 	}
 
-	if err := joindown.Handle(ctx.DeviceSession, phy); err != nil {
+	if err := joindown.Handle(ctx.DeviceSession, ctx.RXPacket, phy); err != nil {
 		return errors.Wrap(err, "run join-response flow error")
 	}
 

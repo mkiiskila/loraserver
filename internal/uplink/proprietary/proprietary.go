@@ -51,17 +51,23 @@ func setContextFromProprietaryPHYPayload(ctx *proprietaryContext) error {
 }
 
 func sendProprietaryPayloadToApplicationServer(ctx *proprietaryContext) error {
+	if ctx.RXPacket.TXInfo.DR >= len(common.Band.DataRates) {
+		return fmt.Errorf("invalid data-rate: %d", ctx.RXPacket.TXInfo.DR)
+	}
+
+	dataRate := common.Band.DataRates[ctx.RXPacket.TXInfo.DR]
+
 	handleReq := as.HandleProprietaryUplinkRequest{
 		MacPayload: ctx.DataPayload.Bytes,
 		Mic:        ctx.RXPacket.PHYPayload.MIC[:],
 		TxInfo: &as.TXInfo{
-			Frequency: int64(ctx.RXPacket.RXInfoSet[0].Frequency),
-			CodeRate:  ctx.RXPacket.RXInfoSet[0].CodeRate,
+			Frequency: int64(ctx.RXPacket.TXInfo.Frequency),
+			CodeRate:  ctx.RXPacket.TXInfo.CodeRate,
 			DataRate: &as.DataRate{
-				Modulation:   string(ctx.RXPacket.RXInfoSet[0].DataRate.Modulation),
-				BandWidth:    uint32(ctx.RXPacket.RXInfoSet[0].DataRate.Bandwidth),
-				SpreadFactor: uint32(ctx.RXPacket.RXInfoSet[0].DataRate.SpreadFactor),
-				Bitrate:      uint32(ctx.RXPacket.RXInfoSet[0].DataRate.BitRate),
+				Modulation:   string(dataRate.Modulation),
+				BandWidth:    uint32(dataRate.Bandwidth),
+				SpreadFactor: uint32(dataRate.SpreadFactor),
+				Bitrate:      uint32(dataRate.BitRate),
 			},
 		},
 	}

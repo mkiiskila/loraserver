@@ -13,13 +13,13 @@ import (
 )
 
 // Handle handles a MACCommand sent by a node.
-func Handle(ds *storage.DeviceSession, block Block, pending *Block, rxInfoSet models.RXInfoSet) error {
+func Handle(ds *storage.DeviceSession, block Block, pending *Block, rxPacket models.RXPacket) error {
 	var err error
 	switch block.CID {
 	case lorawan.LinkADRAns:
 		err = handleLinkADRAns(ds, block, pending)
 	case lorawan.LinkCheckReq:
-		err = handleLinkCheckReq(ds, rxInfoSet)
+		err = handleLinkCheckReq(ds, rxPacket)
 	case lorawan.DevStatusAns:
 		err = handleDevStatusAns(ds, block)
 	default:
@@ -128,17 +128,23 @@ func handleLinkADRAns(ds *storage.DeviceSession, block Block, pendingBlock *Bloc
 	return nil
 }
 
-func handleLinkCheckReq(ds *storage.DeviceSession, rxInfoSet models.RXInfoSet) error {
-	if len(rxInfoSet) == 0 {
+func handleLinkCheckReq(ds *storage.DeviceSession, rxPacket models.RXPacket) error {
+	if len(rxPacket.RXInfoSet) == 0 {
 		return errors.New("rx info-set contains zero items")
 	}
 
-	requiredSNR, ok := common.SpreadFactorToRequiredSNRTable[rxInfoSet[0].DataRate.SpreadFactor]
-	if !ok {
-		return fmt.Errorf("sf %d not in sf to required snr table", rxInfoSet[0].DataRate.SpreadFactor)
+	if rxPacket.TXInfo.DR >= len(common.Band.DataRates) {
+		return fmt.Errorf("invalid data-rate: %d", rxPacket.TXInfo.DR)
 	}
 
-	margin := rxInfoSet[0].LoRaSNR - requiredSNR
+	sf := common.Band.DataRates[rxPacket.TXInfo.DR].SpreadFactor
+
+	requiredSNR, ok := common.SpreadFactorToRequiredSNRTable[sf]
+	if !ok {
+		return fmt.Errorf("sf %d not in sf to required snr table", sf)
+	}
+
+	margin := rxPacket.RXInfoSet[0].LoRaSNR - requiredSNR
 	if margin < 0 {
 		margin = 0
 	}
@@ -150,7 +156,7 @@ func handleLinkCheckReq(ds *storage.DeviceSession, rxInfoSet models.RXInfoSet) e
 				CID: lorawan.LinkCheckAns,
 				Payload: &lorawan.LinkCheckAnsPayload{
 					Margin: uint8(margin),
-					GwCnt:  uint8(len(rxInfoSet)),
+					GwCnt:  uint8(len(rxPacket.RXInfoSet)),
 				},
 			},
 		},

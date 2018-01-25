@@ -39,10 +39,7 @@ func HandleADR(ds *storage.DeviceSession, rxPacket models.RXPacket, fullFCnt uin
 		MaxSNR:       maxSNR,
 	})
 
-	currentDR, err := common.Band.GetDataRate(rxPacket.RXInfoSet[0].DataRate)
-	if err != nil {
-		return fmt.Errorf("get data-rate error: %s", err)
-	}
+	currentDR := rxPacket.TXInfo.DR
 
 	// The node changed its data-rate. Possibly the node did also reset its
 	// tx-power to max power. Because of this, we need to reset the tx-power
@@ -81,7 +78,10 @@ func HandleADR(ds *storage.DeviceSession, rxPacket models.RXPacket, fullFCnt uin
 		return nil
 	}
 
-	requiredSNR, err := getRequiredSNRForSF(rxPacket.RXInfoSet[0].DataRate.SpreadFactor)
+	if currentDR >= len(common.Band.DataRates) {
+		return fmt.Errorf("invalid data-rate: %d", currentDR)
+	}
+	requiredSNR, err := getRequiredSNRForSF(common.Band.DataRates[currentDR].SpreadFactor)
 	if err != nil {
 		return err
 	}
