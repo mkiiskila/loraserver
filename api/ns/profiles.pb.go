@@ -72,9 +72,6 @@ It has these top-level messages:
 	GatewayStats
 	GetGatewayStatsRequest
 	GetGatewayStatsResponse
-	DataRate
-	RXInfo
-	TXInfo
 	CreateChannelConfigurationRequest
 	CreateChannelConfigurationResponse
 	GetChannelConfigurationRequest
@@ -105,6 +102,16 @@ It has these top-level messages:
 	GetDeviceQueueItemsForDevEUIResponse
 	GetNextDownlinkFCntForDevEUIRequest
 	GetNextDownlinkFCntForDevEUIResponse
+	StreamFrameLogsForGatewayRequest
+	StreamFrameLogsForGatewayResponse
+	StreamFrameLogsForDeviceRequest
+	StreamFrameLogsForDeviceResponse
+	DataRate
+	UplinkTXInfo
+	UplinkRXInfo
+	UplinkFrameLog
+	DownlinkTXInfo
+	DownlinkFrameLog
 */
 package ns
 

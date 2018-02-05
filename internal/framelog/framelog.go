@@ -88,8 +88,8 @@ func LogDownlinkFrameForGateway(frame DownlinkFrameLog) error {
 	return nil
 }
 
-// LogDownlinkFrameForDevice logs the given frame to the device pub-sub key.
-func LogDownlinkFrameForDevice(devEUI lorawan.EUI64, frame DownlinkFrameLog) error {
+// LogDownlinkFrameForDevEUI logs the given frame to the device pub-sub key.
+func LogDownlinkFrameForDevEUI(devEUI lorawan.EUI64, frame DownlinkFrameLog) error {
 	c := common.RedisPool.Get()
 	defer c.Close()
 

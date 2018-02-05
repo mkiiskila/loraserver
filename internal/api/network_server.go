@@ -5,6 +5,8 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -13,6 +15,7 @@ import (
 	"github.com/brocaar/loraserver/internal/api/auth"
 	"github.com/brocaar/loraserver/internal/common"
 	proprietarydown "github.com/brocaar/loraserver/internal/downlink/proprietary"
+	"github.com/brocaar/loraserver/internal/framelog"
 	"github.com/brocaar/loraserver/internal/gateway"
 	"github.com/brocaar/loraserver/internal/maccommand"
 	"github.com/brocaar/loraserver/internal/storage"
@@ -858,6 +861,84 @@ func (n *NetworkServerAPI) GetGatewayStats(ctx context.Context, req *ns.GetGatew
 	return &resp, nil
 }
 
+// StreamFrameLogsForGateway returns a stream of frames seen by the given gateway.
+func (n *NetworkServerAPI) StreamFrameLogsForGateway(req *ns.StreamFrameLogsForGatewayRequest, srv ns.NetworkServer_StreamFrameLogsForGatewayServer) error {
+	var mac lorawan.EUI64
+	copy(mac[:], req.Mac)
+
+	frameLogChan := make(chan framelog.FrameLog)
+
+	go func() {
+		err := framelog.GetFrameLogForGateway(srv.Context(), mac, frameLogChan)
+		if err != nil {
+			log.WithError(err).Error("get frame-log for gateway error")
+		}
+		close(frameLogChan)
+	}()
+
+	for fl := range frameLogChan {
+		up, down, err := frameLogToUplinkAndDownlinkFrameLog(fl)
+		if err != nil {
+			log.WithError(err).Error("frame-log to uplink and downlink frame-log error")
+			continue
+		}
+
+		var resp ns.StreamFrameLogsForGatewayResponse
+		if up != nil {
+			resp.UplinkFrames = append(resp.UplinkFrames, up)
+		}
+
+		if down != nil {
+			resp.DownlinkFrames = append(resp.DownlinkFrames, down)
+		}
+
+		if err := srv.Send(&resp); err != nil {
+			log.WithError(err).Error("error sending frame-log response")
+		}
+	}
+
+	return nil
+}
+
+// StreamFrameLogsForDevice returns a stream of frames seen by the given device.
+func (n *NetworkServerAPI) StreamFrameLogsForDevice(req *ns.StreamFrameLogsForDeviceRequest, srv ns.NetworkServer_StreamFrameLogsForDeviceServer) error {
+	var devEUI lorawan.EUI64
+	copy(devEUI[:], req.DevEUI)
+
+	frameLogChan := make(chan framelog.FrameLog)
+
+	go func() {
+		err := framelog.GetFrameLogForDevice(srv.Context(), devEUI, frameLogChan)
+		if err != nil {
+			log.WithError(err).Error("get frame-log for device error")
+		}
+		close(frameLogChan)
+	}()
+
+	for fl := range frameLogChan {
+		up, down, err := frameLogToUplinkAndDownlinkFrameLog(fl)
+		if err != nil {
+			log.WithError(err).Error("frame-log to uplink and downlink frame-log error")
+			continue
+		}
+
+		var resp ns.StreamFrameLogsForDeviceResponse
+		if up != nil {
+			resp.UplinkFrames = append(resp.UplinkFrames, up)
+		}
+
+		if down != nil {
+			resp.DownlinkFrames = append(resp.DownlinkFrames, down)
+		}
+
+		if err := srv.Send(&resp); err != nil {
+			log.WithError(err).Error("error sending frame-log response")
+		}
+	}
+
+	return nil
+}
+
 // CreateChannelConfiguration creates the given channel-configuration.
 func (n *NetworkServerAPI) CreateChannelConfiguration(ctx context.Context, req *ns.CreateChannelConfigurationRequest) (*ns.CreateChannelConfigurationResponse, error) {
 	cf := gateway.ChannelConfiguration{
@@ -1198,4 +1279,93 @@ func gwToResp(gw gateway.Gateway) *ns.GetGatewayResponse {
 	}
 
 	return &resp
+}
+
+func frameLogToUplinkAndDownlinkFrameLog(fl framelog.FrameLog) (*ns.UplinkFrameLog, *ns.DownlinkFrameLog, error) {
+	var up *ns.UplinkFrameLog
+	var down *ns.DownlinkFrameLog
+
+	if fl.UplinkFrame != nil {
+		b, err := fl.UplinkFrame.PHYPayload.MarshalBinary()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "marshal phypayload error")
+		}
+
+		up = &ns.UplinkFrameLog{
+			TxInfo: &ns.UplinkTXInfo{
+				Frequency: uint32(fl.UplinkFrame.TXInfo.Frequency),
+				DataRate: &ns.DataRate{
+					Modulation:   string(fl.UplinkFrame.TXInfo.DataRate.Modulation),
+					Bandwidth:    uint32(fl.UplinkFrame.TXInfo.DataRate.Bandwidth),
+					SpreadFactor: uint32(fl.UplinkFrame.TXInfo.DataRate.SpreadFactor),
+					Bitrate:      uint32(fl.UplinkFrame.TXInfo.DataRate.BitRate),
+				},
+				CodeRate: fl.UplinkFrame.TXInfo.CodeRate,
+			},
+			PhyPayload: b,
+		}
+
+		for i := range fl.UplinkFrame.RXInfoSet {
+			rxInfo := ns.UplinkRXInfo{
+				Mac:       fl.UplinkFrame.RXInfoSet[i].MAC[:],
+				Timestamp: fl.UplinkFrame.RXInfoSet[i].Timestamp,
+				Rssi:      int32(fl.UplinkFrame.RXInfoSet[i].RSSI),
+				LoRaSNR:   float32(fl.UplinkFrame.RXInfoSet[i].LoRaSNR),
+				Board:     uint32(fl.UplinkFrame.RXInfoSet[i].Board),
+				Antenna:   uint32(fl.UplinkFrame.RXInfoSet[i].Antenna),
+			}
+
+			if fl.UplinkFrame.RXInfoSet[i].Time != nil {
+				rxInfo.Time = fl.UplinkFrame.RXInfoSet[i].Time.Format(time.RFC3339Nano)
+			}
+
+			if fl.UplinkFrame.RXInfoSet[i].TimeSinceGPSEpoch != nil {
+				rxInfo.TimeSinceGPSEpoch = time.Duration(*fl.UplinkFrame.RXInfoSet[i].TimeSinceGPSEpoch).String()
+			}
+
+			up.RxInfo = append(up.RxInfo, &rxInfo)
+		}
+	}
+
+	if fl.DownlinkFrame != nil {
+		b, err := fl.DownlinkFrame.PHYPayload.MarshalBinary()
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "marshal phypayload error")
+		}
+
+		down = &ns.DownlinkFrameLog{
+			TxInfo: &ns.DownlinkTXInfo{
+				Mac:         fl.DownlinkFrame.TXInfo.MAC[:],
+				Immediately: fl.DownlinkFrame.TXInfo.Immediately,
+				Frequency:   uint32(fl.DownlinkFrame.TXInfo.Frequency),
+				Power:       int32(fl.DownlinkFrame.TXInfo.Power),
+				DataRate: &ns.DataRate{
+					Modulation:   string(fl.DownlinkFrame.TXInfo.DataRate.Modulation),
+					Bandwidth:    uint32(fl.DownlinkFrame.TXInfo.DataRate.Bandwidth),
+					SpreadFactor: uint32(fl.DownlinkFrame.TXInfo.DataRate.SpreadFactor),
+					Bitrate:      uint32(fl.DownlinkFrame.TXInfo.DataRate.Bandwidth),
+				},
+				CodeRate: fl.DownlinkFrame.TXInfo.CodeRate,
+				Board:    uint32(fl.DownlinkFrame.TXInfo.Board),
+				Antenna:  uint32(fl.DownlinkFrame.TXInfo.Antenna),
+			},
+			PhyPayload: b,
+		}
+
+		if fl.DownlinkFrame.TXInfo.Timestamp != nil {
+			down.TxInfo.Timestamp = uint32(*fl.DownlinkFrame.TXInfo.Timestamp)
+		}
+
+		if fl.DownlinkFrame.TXInfo.TimeSinceGPSEpoch != nil {
+			down.TxInfo.TimeSinceGPSEpoch = time.Duration(*fl.DownlinkFrame.TXInfo.TimeSinceGPSEpoch).String()
+		}
+
+		if fl.DownlinkFrame.TXInfo.IPol != nil {
+			down.TxInfo.IPol = *fl.DownlinkFrame.TXInfo.IPol
+		} else {
+			down.TxInfo.IPol = true
+		}
+	}
+
+	return up, down, nil
 }

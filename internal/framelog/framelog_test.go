@@ -125,7 +125,7 @@ func TestFrameLog(t *testing.T) {
 						MAC: mac,
 					},
 				}
-				So(LogDownlinkFrameForDevice(devEUI, frameLog), ShouldBeNil)
+				So(LogDownlinkFrameForDevEUI(devEUI, frameLog), ShouldBeNil)
 
 				Convey("Then the frame has been logged", func() {
 					So(<-logChannel, ShouldResemble, FrameLog{

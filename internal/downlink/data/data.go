@@ -11,6 +11,7 @@ import (
 
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/internal/common"
+	"github.com/brocaar/loraserver/internal/framelog"
 	"github.com/brocaar/loraserver/internal/maccommand"
 	"github.com/brocaar/loraserver/internal/models"
 	"github.com/brocaar/loraserver/internal/storage"
@@ -28,6 +29,7 @@ var responseTasks = []func(*dataContext) error{
 	stopOnNothingToSend,
 	sendDataDown,
 	saveDeviceSession,
+	logDownlinkFrame,
 }
 
 var scheduleNextQueueItemTasks = []func(*dataContext) error{
@@ -43,6 +45,7 @@ var scheduleNextQueueItemTasks = []func(*dataContext) error{
 	stopOnNothingToSend,
 	sendDataDown,
 	saveDeviceSession,
+	logDownlinkFrame,
 }
 
 type dataContext struct {
@@ -101,6 +104,9 @@ type dataContext struct {
 	// Data contains the bytes to send. Note that this requires FPort to be a
 	// value other than 0.
 	Data []byte
+
+	// PHYPayload holds the LoRaWAN PHYPayload.
+	PHYPayload lorawan.PHYPayload
 
 	// RXPacket holds the received uplink packet (in case of Class-A downlink).
 	RXPacket *models.RXPacket
@@ -389,6 +395,8 @@ func sendDataDown(ctx *dataContext) error {
 		return errors.Wrap(err, "set MIC error")
 	}
 
+	ctx.PHYPayload = phy
+
 	// send the packet to the gateway
 	if err := common.Gateway.SendTXPacket(gw.TXPacket{
 		Token:      ctx.Token,
@@ -551,4 +559,21 @@ func getAndFilterMACQueueItems(ds storage.DeviceSession, allowEncrypted bool, re
 	}
 
 	return blocks, encrypted, len(allBlocks) != len(blocks), nil
+}
+
+func logDownlinkFrame(ctx *dataContext) error {
+	frameLog := framelog.DownlinkFrameLog{
+		PHYPayload: ctx.PHYPayload,
+		TXInfo:     ctx.TXInfo,
+	}
+
+	if err := framelog.LogDownlinkFrameForGateway(frameLog); err != nil {
+		log.WithError(err).Error("log downlink frame for gateway error")
+	}
+
+	if err := framelog.LogDownlinkFrameForDevEUI(ctx.DeviceSession.DevEUI, frameLog); err != nil {
+		log.WithError(err).Error("log downlink frame for device error")
+	}
+
+	return nil
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/brocaar/loraserver/internal/framelog"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -72,6 +74,10 @@ func logJoinRequestFramesCollected(ctx *context) error {
 	var macs []string
 	for _, p := range ctx.RXPacket.RXInfoSet {
 		macs = append(macs, p.MAC.String())
+	}
+
+	if err := framelog.LogUplinkFrameForDevEUI(ctx.JoinRequestPayload.DevEUI, ctx.RXPacket); err != nil {
+		log.WithError(err).Error("log uplink frame for device error")
 	}
 
 	log.WithFields(log.Fields{

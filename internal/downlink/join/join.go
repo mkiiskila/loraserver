@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/internal/common"
+	"github.com/brocaar/loraserver/internal/framelog"
 	"github.com/brocaar/loraserver/internal/models"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/lorawan"
@@ -19,6 +21,7 @@ var tasks = []func(*joinContext) error{
 	setToken,
 	getJoinAcceptTXInfo,
 	sendJoinAcceptResponse,
+	logDownlinkFrame,
 }
 
 type joinContext struct {
@@ -112,6 +115,23 @@ func sendJoinAcceptResponse(ctx *joinContext) error {
 	})
 	if err != nil {
 		return errors.Wrap(err, "send tx-packet error")
+	}
+
+	return nil
+}
+
+func logDownlinkFrame(ctx *joinContext) error {
+	frameLog := framelog.DownlinkFrameLog{
+		PHYPayload: ctx.PHYPayload,
+		TXInfo:     ctx.TXInfo,
+	}
+
+	if err := framelog.LogDownlinkFrameForGateway(frameLog); err != nil {
+		log.WithError(err).Error("log downlink frame for gateway error")
+	}
+
+	if err := framelog.LogDownlinkFrameForDevEUI(ctx.DeviceSession.DevEUI, frameLog); err != nil {
+		log.WithError(err).Error("log downlink frame for device error")
 	}
 
 	return nil

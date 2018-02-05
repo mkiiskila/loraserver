@@ -3,26 +3,27 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
-	"github.com/brocaar/lorawan"
 	jwt "github.com/dgrijalva/jwt-go"
-
+	. "github.com/smartystreets/goconvey/convey"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	"google.golang.org/grpc"
-
+	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/api/ns"
-
 	"github.com/brocaar/loraserver/internal/api/auth"
 	"github.com/brocaar/loraserver/internal/common"
+	"github.com/brocaar/loraserver/internal/framelog"
 	"github.com/brocaar/loraserver/internal/gateway"
 	"github.com/brocaar/loraserver/internal/maccommand"
+	"github.com/brocaar/loraserver/internal/models"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/loraserver/internal/test"
+	"github.com/brocaar/lorawan"
 	"github.com/brocaar/lorawan/backend"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNetworkServerAPI(t *testing.T) {
@@ -41,12 +42,160 @@ func TestNetworkServerAPI(t *testing.T) {
 		test.MustResetDB(db)
 		test.MustFlushRedis(common.RedisPool)
 
+		grpcServer := grpc.NewServer()
+		apiServer := NewNetworkServerAPI()
+		ns.RegisterNetworkServerServer(grpcServer, apiServer)
+
+		ln, err := net.Listen("tcp", "localhost:0")
+		So(err, ShouldBeNil)
+		go grpcServer.Serve(ln)
+		defer func() {
+			grpcServer.Stop()
+			ln.Close()
+		}()
+
+		apiClient, err := grpc.Dial(ln.Addr().String(), grpc.WithInsecure(), grpc.WithBlock())
+		So(err, ShouldBeNil)
+
+		defer apiClient.Close()
+
+		api := ns.NewNetworkServerClient(apiClient)
 		ctx := context.Background()
-		api := NetworkServerAPI{}
 
 		devEUI := [8]byte{1, 2, 3, 4, 5, 6, 7, 8}
 		devAddr := [4]byte{6, 2, 3, 4}
 		nwkSKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+
+		Convey("When calling StreamFrameLogsForGateway", func() {
+			mac := lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8}
+			respChan := make(chan *ns.StreamFrameLogsForGatewayResponse)
+
+			client, err := api.StreamFrameLogsForGateway(ctx, &ns.StreamFrameLogsForGatewayRequest{
+				Mac: mac[:],
+			})
+			So(err, ShouldBeNil)
+
+			// some time for subscribing
+			time.Sleep(100 * time.Millisecond)
+
+			go func() {
+				for {
+					resp, err := client.Recv()
+					if err != nil {
+						break
+					}
+					respChan <- resp
+				}
+			}()
+
+			Convey("When logging a downlink gateway frame", func() {
+				So(framelog.LogDownlinkFrameForGateway(framelog.DownlinkFrameLog{
+					TXInfo: gw.TXInfo{
+						MAC:      mac,
+						DataRate: common.Band.DataRates[0],
+					},
+					PHYPayload: lorawan.PHYPayload{
+						MHDR: lorawan.MHDR{
+							MType: lorawan.UnconfirmedDataDown,
+							Major: lorawan.LoRaWANR1,
+						},
+						MACPayload: &lorawan.MACPayload{},
+					},
+				}), ShouldBeNil)
+
+				Convey("Then the frame-log was received by the client", func() {
+					resp := <-respChan
+					So(resp.UplinkFrames, ShouldHaveLength, 0)
+					So(resp.DownlinkFrames, ShouldHaveLength, 1)
+				})
+			})
+
+			Convey("When logging an uplink gateway frame", func() {
+				So(framelog.LogUplinkFrameForGateways(models.RXPacket{
+					PHYPayload: lorawan.PHYPayload{
+						MHDR: lorawan.MHDR{
+							MType: lorawan.UnconfirmedDataUp,
+							Major: lorawan.LoRaWANR1,
+						},
+						MACPayload: &lorawan.MACPayload{},
+					},
+					TXInfo: models.TXInfo{},
+					RXInfoSet: []models.RXInfo{
+						{
+							MAC: mac,
+						},
+					},
+				}), ShouldBeNil)
+
+				Convey("Then the frame-log was received by the client", func() {
+					resp := <-respChan
+					So(resp.UplinkFrames, ShouldHaveLength, 1)
+					So(resp.DownlinkFrames, ShouldHaveLength, 0)
+				})
+			})
+		})
+
+		Convey("When calling StreamFrameLogsForDevice", func() {
+			respChan := make(chan *ns.StreamFrameLogsForDeviceResponse)
+
+			client, err := api.StreamFrameLogsForDevice(ctx, &ns.StreamFrameLogsForDeviceRequest{
+				DevEUI: devEUI[:],
+			})
+			So(err, ShouldBeNil)
+
+			// some time for subscribing
+			time.Sleep(100 * time.Millisecond)
+
+			go func() {
+				for {
+					resp, err := client.Recv()
+					if err != nil {
+						break
+					}
+					respChan <- resp
+				}
+			}()
+
+			Convey("When logging a downlink device frame", func() {
+				So(framelog.LogDownlinkFrameForDevEUI(devEUI, framelog.DownlinkFrameLog{
+					TXInfo: gw.TXInfo{
+						DataRate: common.Band.DataRates[0],
+					},
+					PHYPayload: lorawan.PHYPayload{
+						MHDR: lorawan.MHDR{
+							MType: lorawan.UnconfirmedDataDown,
+							Major: lorawan.LoRaWANR1,
+						},
+						MACPayload: &lorawan.MACPayload{},
+					},
+				}), ShouldBeNil)
+
+				Convey("Then the frame-log was received by the client", func() {
+					resp := <-respChan
+					So(resp.UplinkFrames, ShouldHaveLength, 0)
+					So(resp.DownlinkFrames, ShouldHaveLength, 1)
+				})
+			})
+
+			Convey("When logging an uplink device frame", func() {
+				So(framelog.LogUplinkFrameForDevEUI(devEUI, models.RXPacket{
+					PHYPayload: lorawan.PHYPayload{
+						MHDR: lorawan.MHDR{
+							MType: lorawan.UnconfirmedDataUp,
+							Major: lorawan.LoRaWANR1,
+						},
+						MACPayload: &lorawan.MACPayload{},
+					},
+					TXInfo: models.TXInfo{},
+				}), ShouldBeNil)
+
+				Convey("Then the frame-log was received by the client", func() {
+					resp := <-respChan
+					So(resp.UplinkFrames, ShouldHaveLength, 1)
+					So(resp.DownlinkFrames, ShouldHaveLength, 0)
+				})
+			})
+		})
 
 		Convey("When calling CreateServiceProfile", func() {
 			resp, err := api.CreateServiceProfile(ctx, &ns.CreateServiceProfileRequest{

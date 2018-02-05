@@ -14,6 +14,7 @@ import (
 	"github.com/brocaar/loraserver/internal/channels"
 	"github.com/brocaar/loraserver/internal/common"
 	datadown "github.com/brocaar/loraserver/internal/downlink/data"
+	"github.com/brocaar/loraserver/internal/framelog"
 	"github.com/brocaar/loraserver/internal/gateway"
 	"github.com/brocaar/loraserver/internal/maccommand"
 	"github.com/brocaar/loraserver/internal/models"
@@ -24,6 +25,7 @@ import (
 var tasks = []func(*dataContext) error{
 	setContextFromDataPHYPayload,
 	getDeviceSessionForPHYPayload,
+	logUplinkFrame,
 	getServiceProfile,
 	getApplicationServerClientForDataUp,
 	decryptFRMPayloadMACCommands,
@@ -79,6 +81,13 @@ func getDeviceSessionForPHYPayload(ctx *dataContext) error {
 	}
 	ctx.DeviceSession = ds
 
+	return nil
+}
+
+func logUplinkFrame(ctx *dataContext) error {
+	if err := framelog.LogUplinkFrameForDevEUI(ctx.DeviceSession.DevEUI, ctx.RXPacket); err != nil {
+		log.WithError(err).Error("log uplink frame for device error")
+	}
 	return nil
 }
 
