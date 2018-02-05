@@ -133,15 +133,9 @@ func handleLinkCheckReq(ds *storage.DeviceSession, rxPacket models.RXPacket) err
 		return errors.New("rx info-set contains zero items")
 	}
 
-	if rxPacket.TXInfo.DR >= len(common.Band.DataRates) {
-		return fmt.Errorf("invalid data-rate: %d", rxPacket.TXInfo.DR)
-	}
-
-	sf := common.Band.DataRates[rxPacket.TXInfo.DR].SpreadFactor
-
-	requiredSNR, ok := common.SpreadFactorToRequiredSNRTable[sf]
+	requiredSNR, ok := common.SpreadFactorToRequiredSNRTable[rxPacket.TXInfo.DataRate.SpreadFactor]
 	if !ok {
-		return fmt.Errorf("sf %d not in sf to required snr table", sf)
+		return fmt.Errorf("sf %d not in sf to required snr table", rxPacket.TXInfo.DataRate.SpreadFactor)
 	}
 
 	margin := rxPacket.RXInfoSet[0].LoRaSNR - requiredSNR

@@ -22,7 +22,7 @@ func TestHandleChannelReconfigure(t *testing.T) {
 
 		rxPacket := models.RXPacket{
 			TXInfo: models.TXInfo{
-				DR: 3,
+				DataRate: common.Band.DataRates[3],
 			},
 		}
 

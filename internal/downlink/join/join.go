@@ -74,8 +74,13 @@ func getJoinAcceptTXInfo(ctx *joinContext) error {
 	if ctx.DeviceSession.RXWindow == storage.RX1 {
 		timestamp = rxInfo.Timestamp + uint32(common.Band.JoinAcceptDelay1/time.Microsecond)
 
+		dr, err := common.Band.GetDataRate(ctx.RXPacket.TXInfo.DataRate)
+		if err != nil {
+			return errors.Wrap(err, "get data-rate error")
+		}
+
 		// get RX1 DR
-		rx1DR, err := common.Band.GetRX1DataRate(ctx.RXPacket.TXInfo.DR, 0)
+		rx1DR, err := common.Band.GetRX1DataRate(dr, 0)
 		if err != nil {
 			return errors.Wrap(err, "get rx1 data-rate error")
 		}

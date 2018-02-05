@@ -39,7 +39,10 @@ func HandleADR(ds *storage.DeviceSession, rxPacket models.RXPacket, fullFCnt uin
 		MaxSNR:       maxSNR,
 	})
 
-	currentDR := rxPacket.TXInfo.DR
+	currentDR, err := common.Band.GetDataRate(rxPacket.TXInfo.DataRate)
+	if err != nil {
+		return errors.Wrap(err, "get data-rate error")
+	}
 
 	// The node changed its data-rate. Possibly the node did also reset its
 	// tx-power to max power. Because of this, we need to reset the tx-power

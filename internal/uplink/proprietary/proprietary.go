@@ -51,11 +51,7 @@ func setContextFromProprietaryPHYPayload(ctx *proprietaryContext) error {
 }
 
 func sendProprietaryPayloadToApplicationServer(ctx *proprietaryContext) error {
-	if ctx.RXPacket.TXInfo.DR >= len(common.Band.DataRates) {
-		return fmt.Errorf("invalid data-rate: %d", ctx.RXPacket.TXInfo.DR)
-	}
-
-	dataRate := common.Band.DataRates[ctx.RXPacket.TXInfo.DR]
+	dataRate := ctx.RXPacket.TXInfo.DataRate
 
 	handleReq := as.HandleProprietaryUplinkRequest{
 		MacPayload: ctx.DataPayload.Bytes,

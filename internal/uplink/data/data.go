@@ -276,7 +276,7 @@ func sendRXInfoPayload(ds storage.DeviceSession, rxPacket models.RXPacket) error
 		return fmt.Errorf("expected *lorawan.MACPayload, got: %T", rxPacket.PHYPayload.MACPayload)
 	}
 
-	dr := common.Band.DataRates[rxPacket.TXInfo.DR]
+	dr := rxPacket.TXInfo.DataRate
 
 	rxInfoReq := nc.HandleRXInfoRequest{
 		DevEUI: ds.DevEUI[:],
@@ -324,7 +324,7 @@ func sendRXInfoPayload(ds storage.DeviceSession, rxPacket models.RXPacket) error
 }
 
 func publishDataUp(asClient as.ApplicationServerClient, ds storage.DeviceSession, sp storage.ServiceProfile, rxPacket models.RXPacket, macPL lorawan.MACPayload) error {
-	dr := common.Band.DataRates[rxPacket.TXInfo.DR]
+	dr := rxPacket.TXInfo.DataRate
 
 	publishDataUpReq := as.HandleUplinkDataRequest{
 		AppEUI: ds.JoinEUI[:],

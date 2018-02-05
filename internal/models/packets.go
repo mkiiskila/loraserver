@@ -3,6 +3,8 @@ package models
 import (
 	"time"
 
+	"github.com/brocaar/lorawan/band"
+
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/lorawan"
 )
@@ -21,7 +23,7 @@ type RXPacket struct {
 // TXInfo defines the metadata used for the transmission.
 type TXInfo struct {
 	Frequency int
-	DR        int
+	DataRate  band.DataRate
 	CodeRate  string
 }
 

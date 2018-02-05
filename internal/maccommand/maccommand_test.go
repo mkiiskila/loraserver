@@ -60,7 +60,7 @@ func TestLinkCheckReq(t *testing.T) {
 
 				rxPacket := models.RXPacket{
 					TXInfo: models.TXInfo{
-						DR: 2,
+						DataRate: common.Band.DataRates[2],
 					},
 					RXInfoSet: models.RXInfoSet{
 						{

@@ -96,15 +96,10 @@ func collectAndCallOnce(p *redis.Pool, rxPacket gw.RXPacket, callback func(packe
 			return errors.Wrap(err, "decode rx packet error")
 		}
 
-		dr, err := common.Band.GetDataRate(packet.RXInfo.DataRate)
-		if err != nil {
-			return errors.Wrap(err, "get data-rate error")
-		}
-
 		out.PHYPayload = packet.PHYPayload
 		out.TXInfo = models.TXInfo{
 			Frequency: packet.RXInfo.Frequency,
-			DR:        dr,
+			DataRate:  packet.RXInfo.DataRate,
 			CodeRate:  packet.RXInfo.CodeRate,
 		}
 

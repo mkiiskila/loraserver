@@ -458,8 +458,13 @@ func getDataDownTXInfoAndDR(ds storage.DeviceSession, lastTXInfo models.TXInfo, 
 	var timestamp uint32
 
 	if ds.RXWindow == storage.RX1 {
+		lastTXDR, err := common.Band.GetDataRate(lastTXInfo.DataRate)
+		if err != nil {
+			return txInfo, 0, errors.Wrap(err, "get data-rate error")
+		}
+
 		// get rx1 dr
-		dr, err := common.Band.GetRX1DataRate(lastTXInfo.DR, int(ds.RX1DROffset))
+		dr, err := common.Band.GetRX1DataRate(lastTXDR, int(ds.RX1DROffset))
 		if err != nil {
 			return txInfo, dr, err
 		}

@@ -278,7 +278,7 @@ func TestADR(t *testing.T) {
 						RXPacket: models.RXPacket{
 							PHYPayload: phyPayloadADR,
 							TXInfo: models.TXInfo{
-								DR: 2,
+								DataRate: common.Band.DataRates[2],
 							},
 							RXInfoSet: models.RXInfoSet{
 								{LoRaSNR: -7},
@@ -311,7 +311,7 @@ func TestADR(t *testing.T) {
 						RXPacket: models.RXPacket{
 							PHYPayload: phyPayloadADR,
 							TXInfo: models.TXInfo{
-								DR: 5,
+								DataRate: common.Band.DataRates[5],
 							},
 							RXInfoSet: models.RXInfoSet{
 								{LoRaSNR: 1},
@@ -364,7 +364,7 @@ func TestADR(t *testing.T) {
 						RXPacket: models.RXPacket{
 							PHYPayload: phyPayloadADR,
 							TXInfo: models.TXInfo{
-								DR: 5,
+								DataRate: common.Band.DataRates[5],
 							},
 							RXInfoSet: models.RXInfoSet{
 								{LoRaSNR: -5},
@@ -415,7 +415,7 @@ func TestADR(t *testing.T) {
 						RXPacket: models.RXPacket{
 							PHYPayload: phyPayloadADR,
 							TXInfo: models.TXInfo{
-								DR: 2,
+								DataRate: common.Band.DataRates[2],
 							},
 							RXInfoSet: models.RXInfoSet{
 								{LoRaSNR: -7},
@@ -447,7 +447,7 @@ func TestADR(t *testing.T) {
 						RXPacket: models.RXPacket{
 							PHYPayload: phyPayloadADR,
 							TXInfo: models.TXInfo{
-								DR: 2,
+								DataRate: common.Band.DataRates[2],
 							},
 							RXInfoSet: models.RXInfoSet{
 								{LoRaSNR: -7},
@@ -507,7 +507,7 @@ func TestADR(t *testing.T) {
 						RXPacket: models.RXPacket{
 							PHYPayload: phyPayloadADR,
 							TXInfo: models.TXInfo{
-								DR: 2,
+								DataRate: common.Band.DataRates[2],
 							},
 							RXInfoSet: models.RXInfoSet{
 								{LoRaSNR: -7},
@@ -537,7 +537,7 @@ func TestADR(t *testing.T) {
 						RXPacket: models.RXPacket{
 							PHYPayload: phyPayloadNoADR,
 							TXInfo: models.TXInfo{
-								DR: 2,
+								DataRate: common.Band.DataRates[2],
 							},
 							RXInfoSet: models.RXInfoSet{
 								{LoRaSNR: -7},
