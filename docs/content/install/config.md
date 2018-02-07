@@ -11,138 +11,391 @@ menu:
 To list all configuration options, start `loraserver` with the `--help`
 flag. This will display:
 
+The `loraserver` binary has the following command-line flags:
+
 ```text
-GLOBAL OPTIONS:
-   --net-id value                          network identifier (NetID, 3 bytes) encoded as HEX (e.g. 010203) [$NET_ID]
-   --band value                            ism band configuration to use (options: AS_923, AU_915_928, CN_470_510, CN_779_787, EU_433, EU_863_870, IN_865_867, KR_920_923, US_902_928) [$BAND]
-   --band-dwell-time-400ms                 band configuration takes 400ms dwell-time into account [$BAND_DWELL_TIME_400ms]
-   --band-repeater-compatible              band configuration takes repeater encapsulation layer into account [$BAND_REPEATER_COMPATIBLE]
-   --ca-cert value                         ca certificate used by the api server (optional) [$CA_CERT]
-   --tls-cert value                        tls certificate used by the api server (optional) [$TLS_CERT]
-   --tls-key value                         tls key used by the api server (optional) [$TLS_KEY]
-   --bind value                            ip:port to bind the api server (default: "0.0.0.0:8000") [$BIND]
-   --gw-server-ca-cert value               ca certificate used by the gateway api server (optional) [$GW_SERVER_CA_CERT]
-   --gw-server-tls-cert value              tls certificate used by the gateway api server (optional) [$GW_SERVER_TLS_CERT]
-   --gw-server-tls-key value               tls key used by the gateway api server (optional) [$GW_SERVER_TLS_KEY]
-   --gw-server-jwt-secret value            JWT secret used by the gateway api server for gateway authentication / authorization [$GW_SERVER_JWT_SECRET]
-   --gw-server-bind value                  ip:port to bind the gateway api server (default: "0.0.0.0:8002") [$GW_SERVER_BIND]
-   --redis-url value                       redis url (e.g. redis://user:password@hostname:port/0) (default: "redis://localhost:6379") [$REDIS_URL]
-   --postgres-dsn value                    postgresql dsn (e.g.: postgres://user:password@hostname/database?sslmode=disable) (default: "postgres://localhost/loraserver_ns?sslmode=disable") [$POSTGRES_DSN]
-   --db-automigrate                        automatically apply database migrations [$DB_AUTOMIGRATE]
-   --gw-mqtt-server value                  mqtt broker server used by the gateway backend (e.g. scheme://host:port where scheme is tcp, ssl or ws) (default: "tcp://localhost:1883") [$GW_MQTT_SERVER]
-   --gw-mqtt-username value                mqtt username used by the gateway backend (optional) [$GW_MQTT_USERNAME]
-   --gw-mqtt-password value                mqtt password used by the gateway backend (optional) [$GW_MQTT_PASSWORD]
-   --gw-mqtt-ca-cert value                 mqtt CA certificate file used by the gateway backend (optional) [$GW_MQTT_CA_CERT]
-   --gw-mqtt-tls-cert value                mqtt certificate file used by the gateway backend (optional) [$GW_MQTT_TLS_CERT]
-   --gw-mqtt-tls-key value                 mqtt key file of certificate used by the gateway backend (optional) [$GW_MQTT_TLS_KEY]
-   --nc-server value                       hostname:port of the network-controller api server (optional) [$NC_SERVER]
-   --nc-ca-cert value                      ca certificate used by the network-controller client (optional) [$NC_CA_CERT]
-   --nc-tls-cert value                     tls certificate used by the network-controller client (optional) [$NC_TLS_CERT]
-   --nc-tls-key value                      tls key used by the network-controller client (optional) [$NC_TLS_KEY]
-   --deduplication-delay value             time to wait for uplink de-duplication (default: 200ms) [$DEDUPLICATION_DELAY]
-   --get-downlink-data-delay value         delay between uplink delivery to the app server and getting the downlink data from the app server (if any) (default: 100ms) [$GET_DOWNLINK_DATA_DELAY]
-   --gw-stats-aggregation-intervals value  aggregation intervals to use for aggregating the gateway stats (valid options: second, minute, hour, day, week, month, quarter, year) (default: "minute,hour,day") [$GW_STATS_AGGREGATION_INTERVALS]
-   --timezone value                        timezone to use when aggregating data (e.g. 'Europe/Amsterdam') (optional, by default the db timezone is used) [$TIMEZONE]
-   --gw-create-on-stats                    create non-existing gateways on receiving of stats [$GW_CREATE_ON_STATS]
-   --extra-frequencies value               extra frequencies to use for ISM bands that implement the CFList [$EXTRA_FREQUENCIES]
-   --enable-uplink-channels value          enable only a given sub-set of channels (e.g. '0-7,8-15') [$ENABLE_UPLINK_CHANNELS]
-   --node-session-ttl value                the ttl after which a node-session expires after no activity (default: 744h0m0s) [$NODE_SESSION_TTL]
-   --log-node-frames                       log uplink and downlink frames to the database [$LOG_NODE_FRAMES]
-   --log-level value                       debug=5, info=4, warning=3, error=2, fatal=1, panic=0 (default: 4) [$LOG_LEVEL]
-   --js-server value                       hostname:port of the default join-server (default: "http://localhost:8003") [$JS_SERVER]
-   --js-ca-cert value                      ca certificate used by the default join-server client (optional) [$JS_CA_CERT]
-   --js-tls-cert value                     tls certificate used by the default join-server client (optional) [$JS_TLS_CERT]
-   --js-tls-key value                      tls key used by the default join-server client (optional) [$JS_TLS_KEY]
-   --installation-margin value             installation margin (dB) used by the ADR engine (default: 10) [$INSTALLATION_MARGIN]
-   --rx1-delay value                       class a rx1 delay (default: 1) [$RX1_DELAY]
-   --rx1-dr-offset value                   rx1 data-rate offset (valid options documented in the LoRaWAN Regional Parameters specification) (default: 0) [$RX1_DR_OFFSET]
-   --rx2-dr value                          rx2 data-rate (when set to -1, the default rx2 data-rate will be used) (default: -1) [$RX2_DR]
-   --help, -h                              show help
-   --version, -v                           print the version
+LoRa Server is an open-source network-server, part of the LoRa Server project
+        > documentation & support: https://docs.loraserver.io/loraserver/
+        > source & copyright information: https://github.com/brocaar/loraserver/
+
+Usage:
+  loraserver [flags]
+  loraserver [command]
+
+Available Commands:
+  configfile  Print the LoRa Server configuration file
+  help        Help about any command
+  version     Print the LoRa Server version
+
+Flags:
+  -c, --config string   path to configuration file (optional)
+  -h, --help            help for loraserver
+      --log-level int   debug=5, info=4, error=2, fatal=1, panic=0 (default 4)
+
+Use "loraserver [command] --help" for more information about a command.
 ```
 
-Both cli arguments and environment-variables can be used to pass configuration
-options.
+### Configuration file
 
-### NetID
+By default `loraserver` will look in the following order for a
+configuration file at the following paths when `--config` is not:
 
-Taken from the LoRaWAN specifications:
+* `loraserver.toml` (current working directory)
+* `$HOME/.config/loraserver/loraserver.toml`
+* `/etc/loraserver/loraserver.toml`
 
-> The format of the NetID is as follows: The seven LSB of the NetID are called NwkID and
-> match the seven MSB of the short address of an end-device as described before.
-> Neighboring or overlapping networks must have different NwkIDs. The remaining 17 MSB
-> can be freely chosen by the network operator.
+To load configuration from a different location, use the `--config` flag.
 
-The value needs to be [HEX](https://en.wikipedia.org/wiki/Hexadecimal) encoded, e.g. ``010203``.
+To generate a new configuration file `loraserver.toml`, execute the following command:
 
-### Band
+```bash
+loraserver configfile > loraserver.toml
+```
 
-It is important to start `loraserver` with the correct band, as this defines
-the frequencies used. Make sure these frequencies match the frequencies as
-configured in your gateways.
+Note that this configuration file will be pre-filled with the current configuration
+(either loaded from the paths mentioned above, or by using the `--config` flag).
+This makes it possible when new fields get added to upgrade your configuration file
+while preserving your old configuration. Example:
 
-### Dwell time
+```bash
+loraserver configfile --config loraserver-old.toml > loraserver-new.toml
+```
 
-Some band configurations define the max payload size for both dwell-time
-limitation enabled as disabled (e.g. AS 923). In this case the
-`--band-dwell-time-400ms` flag must be set to enforce the max payload size
-given the dwell-time limitation. For band configuration where the dwell-time is
-always enforced, setting this flag is not required.
+Example configuration file:
 
-### Repeater compatibility
+```toml
+[general]
+# Log level
+#
+# debug=5, info=4, warning=3, error=2, fatal=1, panic=0
+log_level=4
 
-Most band configurations define the max payload size for both an optional
-repeater encapsulation layer as for setups where a repeater will never
-be used. The latter case increases the max payload size for some data-rates.
-In case a repeater might used, set the `--band-repeater-compatible` flag.
 
-### Redis connection string
+# PostgreSQL settings.
+#
+# Please note that PostgreSQL 9.5+ is required.
+[postgresql]
+# PostgreSQL dsn (e.g.: postgres://user:password@hostname/database?sslmode=disable).
+#
+# Besides using an URL (e.g. 'postgres://user:password@hostname/database?sslmode=disable')
+# it is also possible to use the following format:
+# 'user=loraserver dbname=loraserver sslmode=disable'.
+#
+# The following connection parameters are supported:
+#
+# * dbname - The name of the database to connect to
+# * user - The user to sign in as
+# * password - The user's password
+# * host - The host to connect to. Values that start with / are for unix domain sockets. (default is localhost)
+# * port - The port to bind to. (default is 5432)
+# * sslmode - Whether or not to use SSL (default is require, this is not the default for libpq)
+# * fallback_application_name - An application_name to fall back to if one isn't provided.
+# * connect_timeout - Maximum wait for connection, in seconds. Zero or not specified means wait indefinitely.
+# * sslcert - Cert file location. The file must contain PEM encoded data.
+# * sslkey - Key file location. The file must contain PEM encoded data.
+# * sslrootcert - The location of the root certificate file. The file must contain PEM encoded data.
+#
+# Valid values for sslmode are:
+#
+# * disable - No SSL
+# * require - Always SSL (skip verification)
+# * verify-ca - Always SSL (verify that the certificate presented by the server was signed by a trusted CA)
+# * verify-full - Always SSL (verify that the certification presented by the server was signed by a trusted CA and the server host name matches the one in the certificate)
+dsn="postgres://localhost/loraserver_ns?sslmode=disable"
 
-For more information about the Redis URL format, see:
-[https://www.iana.org/assignments/uri-schemes/prov/redis](https://www.iana.org/assignments/uri-schemes/prov/redis).
+# Automatically apply database migrations.
+#
+# It is possible to apply the database-migrations by hand
+# (see https://github.com/brocaar/loraserver/tree/master/migrations)
+# or let LoRa App Server migrate to the latest state automatically, by using
+# this setting. Make sure that you always make a backup when upgrading Lora
+# App Server and / or applying migrations.
+automigrate=true
 
-### PostgreSQL connection string
 
-Besides using an URL (e.g. `postgres://user:password@hostname/database?sslmode=disable`)
-it is also possible to use the following format:
-`user=loraserver dbname=loraserver sslmode=disable`.
+# Redis settings
+#
+# Please note that Redis 2.6.0+ is required.
+[redis]
+# Redis url (e.g. redis://user:password@hostname/0)
+#
+# For more information about the Redis URL format, see:
+# https://www.iana.org/assignments/uri-schemes/prov/redis
+url="redis://localhost:6379"
 
-The following connection parameters are supported:
 
-* dbname - The name of the database to connect to
-* user - The user to sign in as
-* password - The user's password
-* host - The host to connect to. Values that start with / are for unix domain sockets. (default is localhost)
-* port - The port to bind to. (default is 5432)
-* sslmode - Whether or not to use SSL (default is require, this is not the default for libpq)
-* fallback_application_name - An application_name to fall back to if one isn't provided.
-* connect_timeout - Maximum wait for connection, in seconds. Zero or not specified means wait indefinitely.
-* sslcert - Cert file location. The file must contain PEM encoded data.
-* sslkey - Key file location. The file must contain PEM encoded data.
-* sslrootcert - The location of the root certificate file. The file must contain PEM encoded data.
+# Network-server settings.
+[network_server]
+# Network identifier (NetID, 3 bytes) encoded as HEX (e.g. 010203)
+net_id="010203"
 
-Valid values for sslmode are:
+# Time to wait for uplink de-duplication.
+#
+# This is the time that LoRa Server will wait for other gateways to receive
+# the same uplink frame. Valid units are 'ms' or 's'.
+deduplication_delay="200ms"
 
-* disable - No SSL
-* require - Always SSL (skip verification)
-* verify-ca - Always SSL (verify that the certificate presented by the server was signed by a trusted CA)
-* verify-full - Always SSL (verify that the certification presented by the server was signed by a trusted CA and the server host name matches the one in the certificate)
+# Device session expiration.
+#
+# The TTL value defines the time after which a device-session expires
+# after no activity. Valid units are 'ms', 's', 'm', 'h'. Note that these
+# values can be combined, e.g. '24h30m15s'.
+# Please note that this value has influence on the uplink / downlink
+# roundtrip time. Setting this value too high means LoRa Server will be
+# unable to respond to the device within its receive-window.
+device_session_ttl="744h0m0s"
 
-### Gateway configuration
+# Get downlink data delay.
+#
+# This is the time that LoRa Server waits between forwarding data to the
+# application-server and reading data from the queue. A higher value
+# means that the application-server has more time to schedule a downlink
+# queue item which can be processed within the same uplink / downlink
+# transaction.
+# Please note that this value has influence on the uplink / downlink
+# roundtrip time. Setting this value too high means LoRa Server will be
+# unable to respond to the device within its receive-window.
+get_downlink_data_delay="100ms"
 
-Gateway statistics are aggregated on the intervals configured by
-the `--gw-stats-aggregation-intervals` config flag. Note that LoRa App Server
-expects at least `minute`, `day` and `hour` in order to show the graphs.
 
-In order to make sure that aggregation is working correctly, please make sure
-to set the correct timezone using the `--timezone` flag. If this flag is not
-set, it will fallback on the timezone of your database.
+  # LoRaWAN regional band configuration.
+  #
+  # Note that you might want to consult the LoRaWAN Regional Parameters
+  # specification for valid values that apply to your region.
+  # See: https://www.lora-alliance.org/lorawan-for-developers
+  [network_server.band]
+  # LoRaWAN band to use.
+  #
+  # Valid values are:
+  # *   AS_923
+  # * AU_915_928
+  # * CN_470_510
+  # * CN_779_787
+  # * EU_433
+  # * EU_863_870
+  # * IN_865_867
+  # * KR_920_923
+  # * US_902_928),
+  name="EU_863_870"
+
+  # Enforce 400ms dwell time
+  #
+  # Some band configurations define the max payload size for both dwell-time
+  # limitation enabled as disabled (e.g. AS 923). In this case the
+  # dwell time setting must be set to enforce the max payload size
+  # given the dwell-time limitation. For band configuration where the dwell-time is
+  # always enforced, setting this flag is not required.
+  dwell_time_400ms=false
+
+  # Enforce repeater compatibility
+  #
+  # Most band configurations define the max payload size for both an optional
+  # repeater encapsulation layer as for setups where a repeater will never
+  # be used. The latter case increases the max payload size for some data-rates.
+  # In case a repeater might used, set this flag to true.
+  repeater_compatible=false
+
+
+  # LoRaWAN network related settings.
+  [network_server.network_settings]
+  # Installation margin (dB) used by the ADR engine.
+  #
+  # A higher number means that the network-server will keep more margin,
+  # resulting in a lower data-rate but decreasing the chance that the
+  # device gets disconnected because it is unable to reach one of the
+  # surrounded gateways.
+  installation_margin=10
+
+  # Class A RX1 delay
+  #
+  # 0=1sec, 1=1sec, ... 15=15sec. A higher value means LoRa Server has more
+  # time to respond to the device as the delay between the uplink and the
+  # first receive-window will be increased.
+  rx1_delay=1
+
+  # RX1 data-rate offset
+  #
+  # Please consult the LoRaWAN Regional Parameters specification for valid
+  # options of the configured network_server.band.name.
+  rx1_dr_offset=0
+
+  # RX2 data-rate (when set to -1, the default rx2 data-rate will be used)
+  #
+  # Please consult the LoRaWAN Regional Parameters specification for valid
+  # options of the configured network_server.band.name.
+  rx2_dr=-1
+
+  # Enable only a given sub-set of channels
+  #
+  # Use this when ony a sub-set of the by default enabled channels are being
+  # used. For example when only using the first 8 channels of the US band.
+  #
+  # Example:
+  # enabled_uplink_channels=[0, 1, 2, 3, 4, 5, 6, 7]
+  enabled_uplink_channels=[]
+
+
+  # Extra channels to use for ISM bands that implement the CFList
+  #
+  # Use this for LoRaWAN regions where it is possible to extend the by default
+  # available channels with additional channels (e.g. the EU band).
+  # Note: the min_dr and max_dr are currently informative, but will be enforced
+  # in one of the next versions of LoRa Server!
+  #
+  # Example:
+  # [[network_server.network_settings.extra_channels]]
+  # frequency=867100000
+  # min_dr=0
+  # max_dr=5
+
+  # [[network_server.network_settings.extra_channels]]
+  # frequency=867300000
+  # min_dr=0
+  # max_dr=5
+
+  # [[network_server.network_settings.extra_channels]]
+  # frequency=867500000
+  # min_dr=0
+  # max_dr=5
+
+  # [[network_server.network_settings.extra_channels]]
+  # frequency=867700000
+  # min_dr=0
+  # max_dr=5
+
+  # [[network_server.network_settings.extra_channels]]
+  # frequency=867900000
+  # min_dr=0
+  # max_dr=5
+
+
+  # Network-server API
+  #
+  # This is the network-server API that is used by LoRa App Server or other
+  # custom components interacting with LoRa Server.
+  [network_server.api]
+  # ip:port to bind the api server
+  bind="0.0.0.0:8000"
+
+  # ca certificate used by the api server (optional)
+  ca_cert=""
+
+  # tls certificate used by the api server (optional)
+  tls_cert=""
+
+  # tls key used by the api server (optional)
+  tls_key=""
+
+  # Gateway API
+  #
+  # This API is used by the LoRa Channel Manager component to fetch
+  # channel configuration.
+  [network_server.gateway.api]
+  # ip:port to bind the api server
+  bind="0.0.0.0:8002"
+
+  # CA certificate used by the api server (optional)
+  ca_cert=""
+
+  # tls certificate used by the api server (optional)
+  tls_cert=""
+
+  # tls key used by the api server (optional)
+  tls_key=""
+
+  # JWT secret used by the gateway api server for gateway authentication / authorization
+  jwt_secret=""
+
+  # Gateway statistics settings.
+  [network_server.gateway.stats]
+  # Create non-existing gateways on receiving of stats
+  #
+  # When set to true, LoRa Server will create the gateway when it receives
+  # statistics for a gateway that does not yet exist.
+  create_gateway_on_stats=false
+
+  # Aggregation timezone
+  #
+  # This timezone is used for correctly aggregating the statistics (for example
+  # 'Europe/Amsterdam').
+  # To get the list of supported timezones by your PostgreSQL database,
+  # execute the following SQL query:
+  #   select * from pg_timezone_names;
+  # When left blank, the default timezone of your database will be used.
+  timezone=""
+
+  # Aggregation intervals to use for aggregating the gateway stats
+  #
+  # Valid options: second, minute, hour, day, week, month, quarter, year.
+  # When left empty, no statistics will be stored in the database.
+  # Note, LoRa App Server expects at least "minute", "day", "hour"!
+  aggregation_intervals=["minute", "hour", "day"]
+
+
+  # MQTT gateway backend settings.
+  #
+  # This is the backend communicating with the LoRa gateways over a MQTT broker.
+  [network_server.gateway.backend.mqtt]
+  # MQTT server (e.g. scheme://host:port where scheme is tcp, ssl or ws)
+  server="tcp://localhost:1883"
+
+  # Connect with the given username (optional)
+  username=""
+
+  # Connect with the given password (optional)
+  password=""
+
+  # CA certificate file (optional)
+  #
+  # Use this when setting up a secure connection (when server uses ssl://...)
+  # but the certificate used by the server is not trusted by any CA certificate
+  # on the server (e.g. when self generated).
+  ca_cert=""
+
+  # TLS certificate file (optional)
+  tls_cert=""
+
+  # TLS key file (optional)
+  tls_key=""
+
+
+# Default join-server settings.
+[join_server.default]
+# hostname:port of the default join-server
+#
+# This API is provided by LoRa App Server.
+server="http://localhost:8003"
+
+# ca certificate used by the default join-server client (optional)
+ca_cert=""
+
+# tls certificate used by the default join-server client (optional)
+tls_cert=""
+
+# tls key used by the default join-server client (optional)
+tls_key=""
+
+
+# Network-controller configuration.
+[network_contoller]
+# hostname:port of the network-controller api server (optional)
+server=""
+
+# ca certificate used by the network-controller client (optional)
+ca_cert=""
+
+# tls certificate used by the network-controller client (optional)
+tls_cert=""
+
+# tls key used by the network-controller client (optional)
+tls_key=""
+```
 
 ### Securing the network-server API
 
-In order to protect the network-server API (listening on `--bind`) against
+In order to protect the network-server API (`network_server.api`) against
 unauthorized access and to encrypt all communication, it is advised to use
-TLS certificates. Once the `--ca-cert`, `--tls-cert` and `--tls-key` are set,
+TLS certificates. Once the `ca_cert`, `tls_cert` and `tls_key` are set,
 the API will enforce client certificate validation on all incoming connections.
 This means that when configuring this network-server instance in LoRa App Server,
 you must provide the CA and TLS client certificate. See also LoRa App Server
@@ -154,23 +407,11 @@ for a set of scripts to generate such certificates.
 ### Join-server API configuration
 
 In the current implementation LoRa Server uses a fixed join-server URL
-(provided by LoRa App Server) which is used as a join-server backend.
+(provided by LoRa App Server) which is used as a join-server backend (`join_server.default`).
 
 In case this endpoint is secured using a TLS certificate and expects a client
-certificate, you must set `--js-ca-cert`, `--js-tls-cert` and `--js-tls-key`.
-Also dont forget to change `--js-server` from `http://...` to `https://...`.
+certificate, you must set `ca_cert`, `tls_cert` and `tls_key`.
+Also dont forget to change `server` from `http://...` to `https://...`.
 
 See [https://github.com/brocaar/loraserver-certificates](https://github.com/brocaar/loraserver-certificates)
 for a set of scripts to generate such certificates.
-
-### Adaptive data-rate
-
-Set `--installation-margin` to the installation margin that the ADR engine
-must take into account when calculating the ideal data-rate and TX power.
-
-### Channel configuration
-
-If the used ISM band allows configuring extra uplink channels, you can specify the
-frequencies using `--extra-frequencies`.
-
-In order to only enable only a sub-set of channels, use `--enable-uplink-channels`.

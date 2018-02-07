@@ -72,28 +72,73 @@ url="{{ .Redis.URL }}"
 
 # Network-server settings.
 [network_server]
-# network identifier (NetID, 3 bytes) encoded as HEX (e.g. 010203)
+# Network identifier (NetID, 3 bytes) encoded as HEX (e.g. 010203)
 net_id="{{ .NetworkServer.NetID }}"
 
-# time to wait for uplink de-duplication
+# Time to wait for uplink de-duplication.
+#
+# This is the time that LoRa Server will wait for other gateways to receive
+# the same uplink frame. Valid units are 'ms' or 's'.
 deduplication_delay="{{ .NetworkServer.DeduplicationDelay }}"
 
-# the ttl after which a node-session expires after no activity
+# Device session expiration.
+#
+# The TTL value defines the time after which a device-session expires
+# after no activity. Valid units are 'ms', 's', 'm', 'h'. Note that these
+# values can be combined, e.g. '24h30m15s'.
+# Please note that this value has influence on the uplink / downlink
+# roundtrip time. Setting this value too high means LoRa Server will be
+# unable to respond to the device within its receive-window.
 device_session_ttl="{{ .NetworkServer.DeviceSessionTTL }}"
 
-# delay between uplink delivery to the app server and getting the downlink data from the app server (if any)
+# Get downlink data delay.
+#
+# This is the time that LoRa Server waits between forwarding data to the
+# application-server and reading data from the queue. A higher value
+# means that the application-server has more time to schedule a downlink
+# queue item which can be processed within the same uplink / downlink
+# transaction.
+# Please note that this value has influence on the uplink / downlink
+# roundtrip time. Setting this value too high means LoRa Server will be
+# unable to respond to the device within its receive-window.
 get_downlink_data_delay="{{ .NetworkServer.GetDownlinkDataDelay }}"
 
 
-  # ISM band configuration.
+  # LoRaWAN regional band configuration.
+  #
+  # Note that you might want to consult the LoRaWAN Regional Parameters
+  # specification for valid values that apply to your region.
+  # See: https://www.lora-alliance.org/lorawan-for-developers
   [network_server.band]
-  # ISM band configuration to use.
+  # LoRaWAN band to use.
+  #
+  # Valid values are:
+  # *	AS_923
+  # * AU_915_928
+  # * CN_470_510
+  # * CN_779_787
+  # * EU_433
+  # * EU_863_870
+  # * IN_865_867
+  # * KR_920_923
+  # * US_902_928),
   name="{{ .NetworkServer.Band.Name }}"
 
-  # band configuration takes 400ms dwell-time into account
+  # Enforce 400ms dwell time
+  #
+  # Some band configurations define the max payload size for both dwell-time
+  # limitation enabled as disabled (e.g. AS 923). In this case the
+  # dwell time setting must be set to enforce the max payload size
+  # given the dwell-time limitation. For band configuration where the dwell-time is
+  # always enforced, setting this flag is not required.
   dwell_time_400ms={{ .NetworkServer.Band.DwellTime400ms }}
 
-  # band configuration takes repeater encapsulation layer into account
+  # Enforce repeater compatibility
+  #
+  # Most band configurations define the max payload size for both an optional
+  # repeater encapsulation layer as for setups where a repeater will never
+  # be used. The latter case increases the max payload size for some data-rates.
+  # In case a repeater might used, set this flag to true.
   repeater_compatible={{ .NetworkServer.Band.RepeaterCompatible }}
 
 
@@ -109,7 +154,9 @@ get_downlink_data_delay="{{ .NetworkServer.GetDownlinkDataDelay }}"
 
   # Class A RX1 delay
   #
-  # 0=1sec, 1=1sec, ... 15=15sec.
+  # 0=1sec, 1=1sec, ... 15=15sec. A higher value means LoRa Server has more
+  # time to respond to the device as the delay between the uplink and the
+  # first receive-window will be increased.
   rx1_delay={{ .NetworkServer.NetworkSettings.RX1Delay }}
 
   # RX1 data-rate offset
@@ -198,7 +245,7 @@ get_downlink_data_delay="{{ .NetworkServer.GetDownlinkDataDelay }}"
   # ip:port to bind the api server
   bind="{{ .NetworkServer.Gateway.API.Bind }}"
 
-  # ca certificate used by the api server (optional)
+  # CA certificate used by the api server (optional)
   ca_cert="{{ .NetworkServer.Gateway.API.CACert }}"
 
   # tls certificate used by the api server (optional)
@@ -213,21 +260,32 @@ get_downlink_data_delay="{{ .NetworkServer.GetDownlinkDataDelay }}"
   # Gateway statistics settings.
   [network_server.gateway.stats]
   # Create non-existing gateways on receiving of stats
+  #
+  # When set to true, LoRa Server will create the gateway when it receives
+  # statistics for a gateway that does not yet exist.
   create_gateway_on_stats={{ .NetworkServer.Gateway.Stats.CreateGatewayOnStats }}
 
-  # timezone to use when aggregating data (e.g. 'Europe/Amsterdam') (optional, by default the db timezone is used)
+  # Aggregation timezone
+  #
+  # This timezone is used for correctly aggregating the statistics (for example
+  # 'Europe/Amsterdam').
+  # To get the list of supported timezones by your PostgreSQL database,
+  # execute the following SQL query:
+  #   select * from pg_timezone_names;
+  # When left blank, the default timezone of your database will be used.
   timezone="{{ .NetworkServer.Gateway.Stats.Timezone }}"
 
   # Aggregation intervals to use for aggregating the gateway stats
   #
   # Valid options: second, minute, hour, day, week, month, quarter, year.
   # When left empty, no statistics will be stored in the database.
+  # Note, LoRa App Server expects at least "minute", "day", "hour"!
   aggregation_intervals=[{{ if .NetworkServer.Gateway.Stats.AggregationIntervals|len }}"{{ end }}{{ range $index, $element := .NetworkServer.Gateway.Stats.AggregationIntervals }}{{ if $index }}", "{{ end }}{{ $element }}{{ end }}{{ if .NetworkServer.Gateway.Stats.AggregationIntervals|len }}"{{ end }}]
 
 
   # MQTT gateway backend settings.
   #
-  # This is the backend communicating with the LoRa gateways over an MQTT broker.
+  # This is the backend communicating with the LoRa gateways over a MQTT broker.
   [network_server.gateway.backend.mqtt]
   # MQTT server (e.g. scheme://host:port where scheme is tcp, ssl or ws)
   server="{{ .NetworkServer.Gateway.Backend.MQTT.Server }}"
