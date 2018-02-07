@@ -3,6 +3,65 @@
 package main
 
 import (
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/grpclog"
+
+	"github.com/brocaar/loraserver/cmd/loraserver/cmd"
+)
+
+// grpcLogger implements a wrapper around the logrus Logger to make it
+// compatible with the grpc LoggerV2. It seems that V is not (always)
+// called, therefore the Info* methods are overridden as we want to
+// log these as debug info.
+type grpcLogger struct {
+	*log.Logger
+}
+
+func (gl *grpcLogger) V(l int) bool {
+	level, ok := map[log.Level]int{
+		log.DebugLevel: 0,
+		log.InfoLevel:  1,
+		log.WarnLevel:  2,
+		log.ErrorLevel: 3,
+		log.FatalLevel: 4,
+	}[log.GetLevel()]
+	if !ok {
+		return false
+	}
+
+	return l >= level
+}
+
+func (gl *grpcLogger) Info(args ...interface{}) {
+	if log.GetLevel() == log.DebugLevel {
+		log.Debug(args...)
+	}
+}
+
+func (gl *grpcLogger) Infoln(args ...interface{}) {
+	if log.GetLevel() == log.DebugLevel {
+		log.Debug(args...)
+	}
+}
+
+func (gl *grpcLogger) Infof(format string, args ...interface{}) {
+	if log.GetLevel() == log.DebugLevel {
+		log.Debugf(format, args...)
+	}
+}
+
+func init() {
+	grpclog.SetLoggerV2(&grpcLogger{log.StandardLogger()})
+}
+
+var version string // set by the compiler
+
+func main() {
+	cmd.Execute(version)
+}
+
+/*
+import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -170,7 +229,7 @@ func setNetID(c *cli.Context) error {
 	if err := netID.UnmarshalText([]byte(c.String("net-id"))); err != nil {
 		return errors.Wrap(err, "NetID parse error")
 	}
-	common.NetID = netID
+	config.C.NetworkServer.NetID = netID
 	return nil
 }
 
@@ -192,40 +251,40 @@ func setBandConfig(c *cli.Context) error {
 		}
 	}
 
-	common.Band = bandConfig
-	common.BandName = band.Name(c.String("band"))
+	config.C.NetworkServer.Band.Band = bandConfig
+	config.C.NetworkServer.Band.Name = band.Name(c.String("band"))
 
 	return nil
 }
 
 func setRXParameters(c *cli.Context) error {
-	common.RX1Delay = c.Int("rx1-delay")
-	common.RX1DROffset = c.Int("rx1-dr-offset")
+	config.C.NetworkServer.NetworkSettings.RX1Delay = c.Int("rx1-delay")
+	config.C.NetworkServer.NetworkSettings.RX1DROffset = c.Int("rx1-dr-offset")
 	if rx2DR := c.Int("rx2-dr"); rx2DR != -1 {
-		common.RX2DR = rx2DR
+		config.C.NetworkServer.NetworkSettings.RX2DR = rx2DR
 	} else {
-		common.RX2DR = common.Band.RX2DataRate
+		config.C.NetworkServer.NetworkSettings.RX2DR = config.C.NetworkServer.Band.Band.RX2DataRate
 	}
 	return nil
 }
 
 func setDeduplicationDelay(c *cli.Context) error {
-	common.DeduplicationDelay = c.Duration("deduplication-delay")
+	config.C.NetworkServer.DeduplicationDelay = c.Duration("deduplication-delay")
 	return nil
 }
 
 func setGetDownlinkDataDelay(c *cli.Context) error {
-	common.GetDownlinkDataDelay = c.Duration("get-downlink-data-delay")
+	config.C.NetworkServer.GetDownlinkDataDelay = c.Duration("get-downlink-data-delay")
 	return nil
 }
 
 func setCreateGatewayOnStats(c *cli.Context) error {
-	common.CreateGatewayOnStats = c.Bool("gw-create-on-stats")
+	config.C.NetworkServer.Gateway.Stats.CreateGatewayOnStats = c.Bool("gw-create-on-stats")
 	return nil
 }
 
 func setNodeSessionTTL(c *cli.Context) error {
-	common.NodeSessionTTL = c.Duration("node-session-ttl")
+	config.C.NetworkServer.DeviceSessionTTL = c.Duration("node-session-ttl")
 	return nil
 }
 
@@ -235,7 +294,7 @@ func setLogNodeFrames(c *cli.Context) error {
 }
 
 func setGatewayServerJWTSecret(c *cli.Context) error {
-	common.GatewayServerJWTSecret = c.String("gw-server-jwt-secret")
+	config.C.NetworkServer.Gateway.API.JWTSecret = c.String("gw-server-jwt-secret")
 	return nil
 }
 
@@ -252,7 +311,7 @@ func setTimezone(c *cli.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "load timezone location error")
 		}
-		common.TimeLocation = l
+		config.C.NetworkServer.Gateway.Stats.TimezoneLocation = l
 	}
 	return nil
 }
@@ -265,7 +324,7 @@ func setLogLevel(c *cli.Context) error {
 func printStartMessage(c *cli.Context) error {
 	log.WithFields(log.Fields{
 		"version": version,
-		"net_id":  common.NetID.String(),
+		"net_id":  config.C.NetworkServer.NetID.String(),
 		"band":    c.String("band"),
 		"docs":    "https://docs.loraserver.io/",
 	}).Info("starting LoRa Server")
@@ -273,7 +332,7 @@ func printStartMessage(c *cli.Context) error {
 }
 
 func setInstallationMargin(c *cli.Context) error {
-	common.InstallationMargin = c.Float64("installation-margin")
+	config.C.NetworkServer.NetworkSettings.InstallationMargin = c.Float64("installation-margin")
 	return nil
 }
 
@@ -283,8 +342,8 @@ func enableUplinkChannels(c *cli.Context) error {
 	}
 
 	log.Info("disabling all channels")
-	for _, c := range common.Band.GetEnabledUplinkChannels() {
-		if err := common.Band.DisableUplinkChannel(c); err != nil {
+	for _, c := range config.C.NetworkServer.Band.Band.GetEnabledUplinkChannels() {
+		if err := config.C.NetworkServer.Band.Band.DisableUplinkChannel(c); err != nil {
 			return errors.Wrap(err, "disable uplink channel error")
 		}
 	}
@@ -306,7 +365,7 @@ func enableUplinkChannels(c *cli.Context) error {
 		}).Info("enabling channel block")
 
 		for ; start <= end; start++ {
-			if err := common.Band.EnableUplinkChannel(start); err != nil {
+			if err := config.C.NetworkServer.Band.Band.EnableUplinkChannel(start); err != nil {
 				errors.Wrap(err, "enable uplink channel error")
 			}
 		}
@@ -316,7 +375,7 @@ func enableUplinkChannels(c *cli.Context) error {
 
 func setRedisPool(c *cli.Context) error {
 	log.WithField("url", c.String("redis-url")).Info("setup redis connection pool")
-	common.RedisPool = common.NewRedisPool(c.String("redis-url"))
+	config.C.Redis.Pool = common.NewRedisPool(c.String("redis-url"))
 	return nil
 }
 
@@ -326,7 +385,7 @@ func setPostgreSQLConnection(c *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "database connection error")
 	}
-	common.DB = db
+	config.C.PostgreSQL.DB = db
 	return nil
 }
 
@@ -335,12 +394,12 @@ func setGatewayBackend(c *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "gateway-backend setup failed")
 	}
-	common.Gateway = gw
+	config.C.NetworkServer.Gateway.Backend.Backend = gw
 	return nil
 }
 
 func setApplicationServer(c *cli.Context) error {
-	common.ApplicationServerPool = asclient.NewPool()
+	config.C.ApplicationServer.Pool = asclient.NewPool()
 	return nil
 }
 
@@ -354,7 +413,7 @@ func setJoinServer(c *cli.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "create new join-server client error")
 	}
-	common.JoinServerPool = jsclient.NewPool(jsClient)
+	config.C.JoinServer.Pool = jsclient.NewPool(jsClient)
 
 	return nil
 }
@@ -386,7 +445,7 @@ func setNetworkController(c *cli.Context) error {
 		log.Info("no network-controller configured")
 		ncClient = &controller.NopNetworkControllerClient{}
 	}
-	common.Controller = ncClient
+	config.C.NetworkController.Client = ncClient
 	return nil
 }
 
@@ -398,7 +457,7 @@ func runDatabaseMigrations(c *cli.Context) error {
 			AssetDir: migrations.AssetDir,
 			Dir:      "",
 		}
-		n, err := migrate.Exec(common.DB.DB.DB, "postgres", m, migrate.Up)
+		n, err := migrate.Exec(config.C.PostgreSQL.DB.DB.DB, "postgres", m, migrate.Up)
 		if err != nil {
 			return errors.Wrap(err, "applying migrations failed")
 		}
@@ -788,3 +847,4 @@ func main() {
 	}
 	app.Run(os.Args)
 }
+*/
