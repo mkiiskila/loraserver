@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+NAME=loraserver
 BIN_DIR=/usr/bin
 SCRIPT_DIR=/usr/lib/loraserver/scripts
 LOG_DIR=/var/log/loraserver
