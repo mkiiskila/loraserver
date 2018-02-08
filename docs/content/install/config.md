@@ -133,6 +133,9 @@ net_id="010203"
 #
 # This is the time that LoRa Server will wait for other gateways to receive
 # the same uplink frame. Valid units are 'ms' or 's'.
+# Please note that this value has influence on the uplink / downlink
+# roundtrip time. Setting this value too high means LoRa Server will be
+# unable to respond to the device within its receive-window.
 deduplication_delay="200ms"
 
 # Device session expiration.
@@ -140,9 +143,6 @@ deduplication_delay="200ms"
 # The TTL value defines the time after which a device-session expires
 # after no activity. Valid units are 'ms', 's', 'm', 'h'. Note that these
 # values can be combined, e.g. '24h30m15s'.
-# Please note that this value has influence on the uplink / downlink
-# roundtrip time. Setting this value too high means LoRa Server will be
-# unable to respond to the device within its receive-window.
 device_session_ttl="744h0m0s"
 
 # Get downlink data delay.
