@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -26,6 +27,7 @@ var tasks = []func(*context) error{
 	validateNonce,
 	getRandomDevAddr,
 	getJoinAcceptFromAS,
+	convertEphemeral,
 	flushDeviceQueue,
 	createNodeSession,
 	createDeviceActivation,
@@ -42,12 +44,14 @@ type context struct {
 	CFList             []uint32
 	JoinAnsPayload     backend.JoinAnsPayload
 	DeviceSession      storage.DeviceSession
+	Ephemeral          bool
 }
 
 // Handle handles a join-request
 func Handle(rxPacket models.RXPacket) error {
 	ctx := context{
-		RXPacket: rxPacket,
+		RXPacket:  rxPacket,
+		Ephemeral: false,
 	}
 
 	for _, t := range tasks {
@@ -98,6 +102,17 @@ func getDeviceAndDeviceProfile(ctx *context) error {
 	var err error
 
 	ctx.Device, err = storage.GetDevice(config.C.PostgreSQL.DB, ctx.JoinRequestPayload.DevEUI)
+	if err != nil {
+		nullEUI := lorawan.EUI64{} // XXX Could use AppEUI from JoinRequest.
+		ctx.Device, err = storage.GetDevice(config.C.PostgreSQL.DB, nullEUI)
+		if err == nil {
+			now := time.Now()
+			ctx.Device.CreatedAt = now
+			ctx.Device.UpdatedAt = now
+			ctx.Device.DevEUI = ctx.JoinRequestPayload.DevEUI
+			ctx.Ephemeral = true
+		}
+	}
 	if err != nil {
 		return errors.Wrap(err, "get device error")
 	}
@@ -197,6 +212,18 @@ func getJoinAcceptFromAS(ctx *context) error {
 		return errors.Wrap(err, "join-request to join-server error")
 	}
 
+	return nil
+}
+
+func convertEphemeral(ctx *context) error {
+	if ctx.Ephemeral == false {
+		return nil
+	}
+
+	if err := storage.CreateDevice(config.C.PostgreSQL.DB, &ctx.Device); err != nil {
+		return errors.Wrap(err, "persist ephemeral device error")
+	}
+	ctx.Ephemeral = false
 	return nil
 }
 
