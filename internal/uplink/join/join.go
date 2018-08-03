@@ -45,6 +45,8 @@ type context struct {
 	JoinAnsPayload     backend.JoinAnsPayload
 	DeviceSession      storage.DeviceSession
 	Ephemeral          bool
+	RSSI               int
+	LoRaSNR            float64
 }
 
 // Handle handles a join-request
@@ -88,11 +90,20 @@ func logJoinRequestFramesCollected(ctx *context) error {
 		log.WithError(err).Error("log uplink frame for device error")
 	}
 
+	if ctx.RXPacket.RXInfoSet.Len() == 0 {
+		ctx.RSSI = -100
+		ctx.LoRaSNR = -10
+	} else {
+		ctx.RSSI = ctx.RXPacket.RXInfoSet[0].RSSI
+		ctx.LoRaSNR = ctx.RXPacket.RXInfoSet[0].LoRaSNR
+	}
 	log.WithFields(log.Fields{
 		"dev_eui":  ctx.JoinRequestPayload.DevEUI,
 		"gw_count": len(macs),
 		"gw_macs":  strings.Join(macs, ", "),
 		"mtype":    ctx.RXPacket.PHYPayload.MHDR.MType,
+		"rssi":     ctx.RSSI,
+		"snr":      ctx.LoRaSNR,
 	}).Info("packet(s) collected")
 
 	return nil
@@ -200,6 +211,8 @@ func getJoinAcceptFromAS(ctx *context) error {
 		},
 		RxDelay: config.C.NetworkServer.NetworkSettings.RX1Delay,
 		CFList:  backend.HEXBytes(cFListB),
+		RSSI:    ctx.RSSI,
+		LoRaSNR: ctx.LoRaSNR,
 	}
 
 	jsClient, err := config.C.JoinServer.Pool.Get(ctx.JoinRequestPayload.JoinEUI)

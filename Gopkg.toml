@@ -2,8 +2,11 @@
 # for detailed Gopkg.toml documentation.
 
 [[constraint]]
-  branch = "master"
+  #branch = "master"
   name = "github.com/brocaar/lorawan"
+  # JoinReqPayload modifications
+  source = "github.com/mkiiskila/lorawan"
+  branch = "unknown_joins"
 
 [[constraint]]
   branch = "master"
